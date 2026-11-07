@@ -7,6 +7,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -25,6 +27,9 @@ import dev.androdock.terminal.TerminalActivity
 class DashboardActivity : Activity() {
     private lateinit var web: WebView
 
+    /** Sélecteur de fichier en attente (`<input type="file">` du tableau de bord : import Compose). */
+    private var fileCallback: ValueCallback<Array<Uri>>? = null
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +46,29 @@ class DashboardActivity : Activity() {
             addJavascriptInterface(Bridge(), "AndrodockBridge")
             // Erreurs JavaScript du tableau de bord dans logcat (diagnostic des tests e2e)
             webChromeClient = object : android.webkit.WebChromeClient() {
+                // Sans cette méthode, la WebView ignore les <input type="file"> : le bouton
+                // « Importer un .tar.gz » ne ferait rien.
+                override fun onShowFileChooser(
+                    view: WebView, callback: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams,
+                ): Boolean {
+                    fileCallback?.onReceiveValue(null)
+                    fileCallback = callback
+                    // Type « */* » : une archive téléchargée est souvent vue comme
+                    // application/octet-stream et serait grisée avec un filtre plus strict.
+                    val pick = Intent(Intent.ACTION_GET_CONTENT)
+                        .addCategory(Intent.CATEGORY_OPENABLE)
+                        .setType("*/*")
+                        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE)
+                    return try {
+                        @Suppress("DEPRECATION")
+                        startActivityForResult(Intent.createChooser(pick, null), REQUEST_FILE)
+                        true
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        fileCallback = null
+                        false
+                    }
+                }
+
                 override fun onConsoleMessage(m: android.webkit.ConsoleMessage): Boolean {
                     android.util.Log.i("AndrodockDashboard", "console ${m.messageLevel()} ${m.sourceId()}:${m.lineNumber()} ${m.message()}")
                     return true
@@ -67,6 +95,15 @@ class DashboardActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (web.canGoBack()) web.goBack() else @Suppress("DEPRECATION") super.onBackPressed()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQUEST_FILE) return
+        fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data))
+        fileCallback = null
     }
 
     override fun onDestroy() {
@@ -97,5 +134,6 @@ class DashboardActivity : Activity() {
 
     companion object {
         const val EXTRA_VIEW = "view"
+        private const val REQUEST_FILE = 41
     }
 }
