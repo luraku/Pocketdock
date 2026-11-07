@@ -90,10 +90,10 @@ Fonctionnalités principales :
 Aucune version n'est encore publiée sur un store. L'APK est produit par la CI à chaque push :
 
 1. Ouvrir l'onglet **Actions** du dépôt, puis le dernier run **Build APK** réussi.
-2. Télécharger l'artefact **androdock-apk** (zip contenant `app-debug.apk` et `app-release.apk`).
+2. Télécharger l'artefact **pocketdock-apk** (zip contenant `pocketdock-debug.apk` et `pocketdock-release.apk`).
 3. Sur le téléphone, autoriser l'installation d'applications de cette source, puis ouvrir l'APK.
 
-Ou par adb : `adb install -r app-debug.apk`.
+Ou par adb : `adb install -r pocketdock-debug.apk`.
 
 > Le build `release` est pour l'instant signé avec la clé de debug. Le build **debug** active l'API
 > de contrôle par défaut, le build release la désactive.
@@ -283,8 +283,8 @@ Prérequis : JDK 17, SDK Android (API 35), Python 3.10+ et `readelf` (binutils).
 
 ```sh
 python3 scripts/fetch-native.py            # QEMU, proot et docker pour arm64 et x86_64
-./gradlew testDebugUnitTest assembleDebug  # → app/build/outputs/apk/debug/app-debug.apk
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+./gradlew testDebugUnitTest assembleDebug  # → app/build/outputs/apk/debug/pocketdock-debug.apk
+adb install -r app/build/outputs/apk/debug/pocketdock-debug.apk
 ```
 
 `fetch-native.py --arch aarch64` limite le téléchargement à arm64. Les binaires natifs ne sont pas
@@ -314,12 +314,12 @@ python3 scripts/dashboard-mock/server.py   # API factice avec des données réal
   Il produit `report.json`, `summary.md`, des captures, `logcat.txt` et la console de la VM.
 
   ```sh
-  python3 scripts/e2e/run.py --apk app/build/outputs/apk/debug/app-debug.apk
+  python3 scripts/e2e/run.py --apk app/build/outputs/apk/debug
   ```
 
 - **CI GitHub Actions** (`.github/workflows/build.yml`) :
   - **à chaque push** : binaires natifs, tests unitaires, APK, puis e2e sur émulateur Android 14
-    x86_64 (~15 à 25 min). Artefacts **androdock-apk**, **androdock-licences** et **e2e-report** ;
+    x86_64 (~15 à 25 min). Artefacts **pocketdock-apk**, **pocketdock-licences** et **e2e-report** ;
   - **à la main** (Actions → Build APK → Run workflow) : option `forever`, qui ajoute le scénario
     Compose réel `mysql` + `web` de forever_docker (1 à 2 h) ;
   - un nouveau push annule le run en cours sur la même branche.

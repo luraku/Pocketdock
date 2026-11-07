@@ -4,6 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Nom des APK produits : pocketdock-debug.apk, pocketdock-release.apk (au lieu de app-*.apk).
+base { archivesName = "pocketdock" }
+
 android {
     namespace = "dev.androdock"
     compileSdk = 35

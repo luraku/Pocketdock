@@ -2,7 +2,7 @@
 """
 Tests de bout en bout de Pocketdock, pilotés par adb + l'API de contrôle.
 
-    python3 scripts/e2e/run.py --apk app/build/outputs/apk/debug/app-debug.apk [--out e2e-out]
+    python3 scripts/e2e/run.py --apk app/build/outputs/apk/debug [--out e2e-out]
 
 Prérequis : un appareil ou émulateur visible par `adb devices`, APK **debug**
 (le jeton de l'API est lu avec `run-as`).
@@ -15,6 +15,7 @@ Sorties dans --out :
 Code de sortie : 0 si toutes les étapes obligatoires passent, 1 sinon.
 """
 import argparse
+import glob
 import io
 import json
 import shutil
@@ -143,6 +144,11 @@ def main():
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     ctx = Ctx(args.out, args.serial)
+    if os.path.isdir(args.apk):  # dossier : l'unique APK qu'il contient (pocketdock-debug.apk)
+        apks = sorted(glob.glob(os.path.join(args.apk, "*.apk")))
+        if len(apks) != 1:
+            sys.exit(f"--apk {args.apk} : un seul .apk attendu, trouvé {apks}")
+        args.apk = apks[0]
 
     abi = adb(ctx, "shell", "getprop", "ro.product.cpu.abi").decode().strip()
     sdk = adb(ctx, "shell", "getprop", "ro.build.version.sdk").decode().strip()

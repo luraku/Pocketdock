@@ -67,7 +67,7 @@ def fetch(url: str, dest: Path, attempts: int = 5) -> Path:
     for i in range(1, attempts + 1):
         print(f"  ↓ {url}" + (f" (essai {i})" if i > 1 else ""), flush=True)
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "androdock-build"})
+            req = urllib.request.Request(url, headers={"User-Agent": "pocketdock-build"})
             with urllib.request.urlopen(req, timeout=120) as r, open(part, "wb") as f:
                 shutil.copyfileobj(r, f)
             part.rename(dest)

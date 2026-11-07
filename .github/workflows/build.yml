@@ -70,17 +70,17 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: androdock-apk
+          name: pocketdock-apk
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       # Artefact séparé : mêlés aux APK, ces fichiers changeraient la racine de l'artefact
-      # (ancêtre commun) et donc le chemin apk/debug/app-debug.apk utilisé par l'e2e.
+      # (ancêtre commun) et donc le dossier apk/debug/ utilisé par l'e2e.
       - uses: actions/upload-artifact@v7
         with:
-          name: androdock-licences
+          name: pocketdock-licences
           path: |
             build/THIRD_PARTY_NATIVE-*.md
             LICENSE
@@ -104,7 +104,7 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: androdock-apk
+          name: pocketdock-apk
           path: apk
 
       - name: Activer KVM
@@ -124,7 +124,7 @@ jobs:
           disk-size: 8G
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: python3 scripts/e2e/run.py --apk apk/debug/app-debug.apk --out e2e-out ${{ inputs.forever && '--forever-dir forever' || '' }} ${{ inputs.skip_engine && '--skip-engine' || '' }}
+          script: python3 scripts/e2e/run.py --apk apk/debug --out e2e-out ${{ inputs.forever && '--forever-dir forever' || '' }} ${{ inputs.skip_engine && '--skip-engine' || '' }}
 
       - name: Résultats e2e (rapport, captures, logcat, console VM)
         if: always()
