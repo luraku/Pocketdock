@@ -76,7 +76,7 @@ class LicensesActivity : ComponentActivity() {
         val json = Json { ignoreUnknownKeys = true }
         val own = listOf(
             Notice(
-                "Pocketdock", "Apache-2.0", "https://github.com/luraku/Androdock",
+                "Pocketdock", "Apache-2.0", "https://github.com/luraku/Pocketdock",
                 "Copyright 2026 luraku et les contributeurs de Pocketdock.",
                 listOfNotNull(asset("licenses/apache-2.0.txt")?.let { "LICENSE" to it }),
             )

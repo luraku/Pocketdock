@@ -22,7 +22,7 @@ Règles :
 ## Projet
 
 - Nom public : **Pocketdock**. Identifiants techniques inchangés : paquet `dev.androdock`, classes
-  `Androdock*`, pont JS `AndrodockBridge`, dépôt `luraku/Androdock`.
+  `Androdock*`, pont JS `AndrodockBridge`. Dépôt GitHub : `luraku/Pocketdock` (ex-`luraku/Androdock`, l'ancien nom redirige).
 - Lire `README.md` (architecture, build, tests) et `docs/control-api.md` (API de pilotage).
 - Vérifications avant de pousser : `python3 scripts/fetch-native.py` puis
   `./gradlew testDebugUnitTest assembleDebug` ; le tableau de bord web se teste sans appareil avec
