@@ -38,7 +38,7 @@ donné, ouvrez une issue sur ce dépôt en indiquant la version de l'APK.
 
 | Bibliothèque | Licence |
 |---|---|
-| Kotlin (stdlib), kotlinx.coroutines 1.9.0, kotlinx.serialization 1.7.3 | Apache-2.0 |
+| Kotlin (stdlib), kotlinx.coroutines 1.11.0, kotlinx.serialization 1.12.0 | Apache-2.0 |
 | AndroidX : core-ktx, activity-compose, lifecycle, navigation-compose | Apache-2.0 |
 | Jetpack Compose (BOM 2024.12.01), Material 3, Material Icons | Apache-2.0 |
 | OkHttp 4.12.0, Okio | Apache-2.0 |
