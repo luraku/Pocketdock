@@ -106,6 +106,15 @@ def step(ctx, name, required=True):
     return deco
 
 
+def app_deaths(ctx):
+    """Traces d'un plantage ou d'un arrêt du processus de l'application (diagnostic)."""
+    out = adb(ctx, "logcat", "-d", "-b", "crash", check=False).decode(errors="replace").splitlines()
+    log = adb(ctx, "logcat", "-d", "-v", "time", check=False).decode(errors="replace").splitlines()
+    keys = ("AndroidRuntime", "FATAL", "lowmemorykiller", "lmkd", "has died", "Killing", "am_kill",
+            "am_proc_died", "Force stopping", PKG + " ", "qemu", "DockerVm", "EngineService")
+    return out + [l for l in log if any(k in l for k in keys)]
+
+
 def screenshot(ctx, name, tab=None, dashboard=None):
     # --activity-clear-top : sans lui, si la tâche existe déjà, Android la ramène simplement au
     # premier plan (les extras ne comptent pas pour reconnaître la tâche) et l'intent n'arrive
@@ -264,6 +273,8 @@ def main():
             screenshot(ctx, "02-containers-running", "containers")
             screenshot(ctx, "03-images", "images")
             adb(ctx, "logcat", "-c", check=False)
+            adb(ctx, "logcat", "-b", "crash", "-c", check=False)
+            app_pid = adb(ctx, "shell", "pidof", PKG, check=False).decode().strip()
             screenshot(ctx, "10-dashboard-overview", dashboard="overview")
             screenshot(ctx, "11-dashboard-pods", dashboard="pods")
             screenshot(ctx, "12-dashboard-images", dashboard="images")
@@ -276,6 +287,14 @@ def main():
                     pods_line = [l for l in lines if "view=pods" in l and "engine=RUNNING" in l and " containers=0" not in l]
                     return bool(pods_line), lines[-3:]
                 lines = wait(seen, 150, 3, "signal ready du tableau de bord (vue pods, conteneurs > 0)")
+                # Ouvrir et fermer le tableau de bord ne doit pas arrêter le moteur.
+                pid = adb(ctx, "shell", "pidof", PKG, check=False).decode().strip()
+                engine = api(ctx, "GET", "/status")[1]["engine"]
+                if engine["state"] != "RUNNING":
+                    print(f"    | moteur {engine['state']} ({engine['message']}) après le tableau de bord ; pid {app_pid} → {pid}", flush=True)
+                    for l in app_deaths(ctx)[-40:]:
+                        print("    | " + l, flush=True)
+                    raise AssertionError(f"moteur {engine['state']} après navigation dans le tableau de bord (pid {app_pid} → {pid})")
                 return lines[-1].split("ready ", 1)[-1] if lines else ""
 
     @step(ctx, "Création d'une machine Alpine (proot)")
