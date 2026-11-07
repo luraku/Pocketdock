@@ -107,11 +107,15 @@ def step(ctx, name, required=True):
 
 
 def screenshot(ctx, name, tab=None, dashboard=None):
+    # --activity-clear-top : sans lui, si la tâche existe déjà, Android la ramène simplement au
+    # premier plan (les extras ne comptent pas pour reconnaître la tâche) et l'intent n'arrive
+    # pas : le tableau de bord resterait sur la vue précédente. Avec, MainActivity (singleTop)
+    # repasse au sommet et reçoit l'intent dans onNewIntent.
     if tab:
-        adb(ctx, "shell", "am", "start", "-n", f"{PKG}/.MainActivity", "--es", "tab", tab, check=False)
+        adb(ctx, "shell", "am", "start", "--activity-clear-top", "-n", f"{PKG}/.MainActivity", "--es", "tab", tab, check=False)
         time.sleep(2.5)
     if dashboard:
-        adb(ctx, "shell", "am", "start", "-n", f"{PKG}/.MainActivity", "--es", "dashboard", dashboard, check=False)
+        adb(ctx, "shell", "am", "start", "--activity-clear-top", "-n", f"{PKG}/.MainActivity", "--es", "dashboard", dashboard, check=False)
         time.sleep(5)
     png = adb(ctx, "exec-out", "screencap", "-p")
     with open(os.path.join(ctx.out, f"{name}.png"), "wb") as f:
