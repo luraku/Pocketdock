@@ -1,0 +1,12 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+# Binaires natifs et avis de licence générés par scripts/fetch-native.py
+app/src/main/jniLibs/
+app/src/main/assets/runtime-manifest-*.json
+.native-cache/
+app/src/main/assets/licenses/native-*.json

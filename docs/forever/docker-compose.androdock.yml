@@ -1,0 +1,15 @@
+# À copier dans luraku/forever_docker (à côté de docker-compose.yml).
+# Sur Pocketdock (ou toute machine sans 8 Go de RAM pour compiler), on télécharge l'image
+# publiée par .github/workflows/image.yml au lieu de compiler TrinityCore :
+#   docker compose -f docker-compose.yml -f docker-compose.androdock.yml up -d
+services:
+  worldserver:
+    image: ghcr.io/luraku/forever-trinitycore:latest
+    build: !reset null
+    pull_policy: missing
+  bnetserver:
+    image: ghcr.io/luraku/forever-trinitycore:latest
+    pull_policy: missing
+  extractor:
+    image: ghcr.io/luraku/forever-trinitycore:latest
+    pull_policy: missing

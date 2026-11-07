@@ -1,0 +1,13 @@
+{"libraries": [
+ {"name": "Kotlin (stdlib), kotlinx.coroutines 1.9.0, kotlinx.serialization 1.7.3", "license": "Apache-2.0", "url": "https://github.com/JetBrains/kotlin"},
+ {"name": "AndroidX : core-ktx 1.15.0, activity-compose 1.9.3, lifecycle 2.8.7, navigation-compose 2.8.5", "license": "Apache-2.0", "url": "https://developer.android.com/jetpack/androidx"},
+ {"name": "Jetpack Compose (BOM 2024.12.01), Material 3, Material Icons", "license": "Apache-2.0", "url": "https://developer.android.com/jetpack/compose"},
+ {"name": "OkHttp 4.12.0, Okio", "license": "Apache-2.0", "url": "https://square.github.io/okhttp/"},
+ {"name": "Apache Commons Compress 1.27.1 (et Commons IO, Lang, Codec)", "license": "Apache-2.0", "url": "https://commons.apache.org/proper/commons-compress/"},
+ {"name": "XZ for Java 1.10", "license": "0BSD", "url": "https://tukaani.org/xz/java.html"},
+ {"name": "Termux terminal-view et terminal-emulator v0.118.0", "license": "Apache-2.0", "url": "https://github.com/termux/termux-app"}
+],
+"runtime": [
+ {"name": "Alpine Linux (noyau, initramfs, modloop, paquets dont Docker Engine)", "license": "GPL-2.0 (noyau), licences propres à chaque paquet", "url": "https://alpinelinux.org", "note": "Téléchargés par l'appareil depuis les miroirs d'Alpine au premier démarrage ; non distribués dans l'APK."},
+ {"name": "Rootfs des machines (Alpine minirootfs, Ubuntu Base)", "license": "licences propres à chaque distribution", "url": "https://alpinelinux.org / https://ubuntu.com", "note": "Téléchargés à la création d'une machine ; non distribués dans l'APK."}
+]}

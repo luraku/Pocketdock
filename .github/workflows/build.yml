@@ -1,0 +1,123 @@
+name: Build APK
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      forever:
+        description: "e2e : scénario Compose forever_docker (mysql + web, 1 à 2 h)"
+        type: boolean
+        default: false
+      skip_engine:
+        description: "e2e : ignorer le moteur Docker (app + machines seulement)"
+        type: boolean
+        default: false
+
+# Un nouveau push sur la même branche annule le run en cours (économie de minutes).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Jeton GitHub en lecture seule : la CI ne publie rien dans le dépôt.
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache des binaires natifs
+        uses: actions/cache@v4
+        with:
+          path: .native-cache/debs
+          key: native-${{ hashFiles('scripts/fetch-native.py') }}
+
+      - name: Récupération de QEMU, proot et du client Docker (arm64 + x86_64)
+        run: python3 scripts/fetch-native.py --clean
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests unitaires
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Compilation
+        run: ./gradlew --no-daemon assembleDebug assembleRelease
+
+      - name: Rapport des tests unitaires
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-tests
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: androdock-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+            build/THIRD_PARTY_NATIVE-*.md
+            LICENSE
+            NOTICE
+            THIRD_PARTY_NOTICES.md
+          if-no-files-found: error
+
+  e2e:
+    needs: apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Projet de test Compose (luraku/forever_docker)
+        if: inputs.forever
+        uses: actions/checkout@v4
+        with:
+          repository: luraku/forever_docker
+          path: forever
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: androdock-apk
+          path: apk
+
+      - name: Activer KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Tests e2e sur émulateur Android (x86_64, API 34)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          cores: 4
+          ram-size: 6144M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: python3 scripts/e2e/run.py --apk apk/debug/app-debug.apk --out e2e-out ${{ inputs.forever && '--forever-dir forever' || '' }} ${{ inputs.skip_engine && '--skip-engine' || '' }}
+
+      - name: Résultats e2e (rapport, captures, logcat, console VM)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: e2e-out/
+          if-no-files-found: warn

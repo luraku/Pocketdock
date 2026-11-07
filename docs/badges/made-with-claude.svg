@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="244" height="40" role="img" aria-label="Proudly made with Claude">
+<title>Proudly made with Claude</title>
+<defs><linearGradient id="b" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#1F1B2E"/><stop offset="1" stop-color="#121018"/></linearGradient>
+<linearGradient id="e" x1="0" x2="1"><stop offset="0" stop-color="#F0B48F"/><stop offset="1" stop-color="#D97757"/></linearGradient>
+<radialGradient id="gl" cx="0.12" cy="0.5" r="0.35"><stop offset="0" stop-color="#D97757" stop-opacity=".45"/><stop offset="1" stop-color="#D97757" stop-opacity="0"/></radialGradient></defs>
+<rect x=".5" y=".5" width="243" height="39" rx="11" fill="url(#b)" stroke="url(#e)" stroke-opacity=".75"/>
+<rect x=".5" y=".5" width="243" height="39" rx="11" fill="url(#gl)"/>
+<path d="M26.08,10.22 L25.02,18.52 L28.61,17.00 L25.77,19.67 L33.78,22.08 L25.48,21.02 L27.00,24.61 L24.33,21.77 L21.92,29.78 L22.98,21.48 L19.39,23.00 L22.23,20.33 L14.22,17.92 L22.52,18.98 L21.00,15.39 L23.67,18.23 Z" fill="url(#e)" stroke="url(#e)" stroke-width="0.80" stroke-linejoin="round"/>
+<g font-family="-apple-system,'Segoe UI',Helvetica,Arial,'DejaVu Sans',sans-serif"><text x="44" y="25" font-size="13" fill="#B9B4C8">Proudly made with</text>
+<text x="166" y="25.5" font-size="15" font-weight="700" fill="url(#e)">Claude</text></g></svg>

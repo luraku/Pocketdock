@@ -1,0 +1,9 @@
+Pocketdock
+Copyright 2026 luraku et les contributeurs de Pocketdock
+
+Ce produit est distribué sous la licence Apache, version 2.0 (voir LICENSE).
+
+L'APK de Pocketdock embarque des logiciels tiers distribués sous leurs propres
+licences, dont QEMU et proot (GNU GPL v2) et des bibliothèques sous LGPL, MIT,
+BSD et Apache 2.0. La liste, les licences et les liens vers les sources sont
+dans THIRD_PARTY_NOTICES.md et dans l'application (Moteur → Licences).
