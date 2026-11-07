@@ -26,7 +26,7 @@ build**. Elle est :
 
 - embarquée dans l'APK (`assets/licenses/native-<abi>.json`) et affichée dans l'application :
   **Moteur → Licences et mentions** ;
-- publiée par la CI dans l'artefact **androdock-apk** (`THIRD_PARTY_NATIVE-<abi>.md`).
+- publiée par la CI dans l'artefact **androdock-licences** (`THIRD_PARTY_NATIVE-<abi>.md`).
 
 **Code source (GPL / LGPL).** Les binaires sont ceux des paquets Termux, sans modification. Les
 recettes de construction et les correctifs appliqués par Termux sont dans

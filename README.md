@@ -319,7 +319,7 @@ python3 scripts/dashboard-mock/server.py   # API factice avec des données réal
 
 - **CI GitHub Actions** (`.github/workflows/build.yml`) :
   - **à chaque push** : binaires natifs, tests unitaires, APK, puis e2e sur émulateur Android 14
-    x86_64 (~15 à 25 min). Artefacts **androdock-apk** et **e2e-report** ;
+    x86_64 (~15 à 25 min). Artefacts **androdock-apk**, **androdock-licences** et **e2e-report** ;
   - **à la main** (Actions → Build APK → Run workflow) : option `forever`, qui ajoute le scénario
     Compose réel `mysql` + `web` de forever_docker (1 à 2 h) ;
   - un nouveau push annule le run en cours sur la même branche.

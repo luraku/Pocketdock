@@ -70,6 +70,14 @@ jobs:
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      # Artefact séparé : mêlés aux APK, ces fichiers changeraient la racine de l'artefact
+      # (ancêtre commun) et donc le chemin apk/debug/app-debug.apk utilisé par l'e2e.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: androdock-licences
+          path: |
             build/THIRD_PARTY_NATIVE-*.md
             LICENSE
             NOTICE
