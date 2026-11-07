@@ -119,6 +119,9 @@ Ou par adb : `adb install -r pocketdock-debug.apk`.
 4. L'icône **Tableau de bord** de la barre du haut ouvre l'interface web complète (pods, journaux,
    ressources).
 
+Pour un premier projet Compose prêt à importer, voir [`docs/examples`](docs/examples/README.md)
+(nginx + whoami + redis).
+
 Images : seules les images disponibles pour **linux/arm64** fonctionnent, comme sur un Mac Apple
 Silicon. La plupart des images officielles le sont (`nginx`, `postgres`, `redis`, `mysql`, `python`…).
 
