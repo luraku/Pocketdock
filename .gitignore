@@ -10,3 +10,4 @@ app/src/main/jniLibs/
 app/src/main/assets/runtime-manifest-*.json
 .native-cache/
 app/src/main/assets/licenses/native-*.json
+__pycache__/
