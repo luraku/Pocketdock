@@ -42,11 +42,13 @@ class NativeRuntime(private val context: Context) {
         else -> "aarch64"
     }
 
+    private val manifestJson = Json { ignoreUnknownKeys = true }
+
     private val manifest: Manifest? by lazy {
         val a = abi ?: return@lazy null
         runCatching {
             context.assets.open("runtime-manifest-$a.json").use {
-                Json { ignoreUnknownKeys = true }.decodeFromString<Manifest>(it.readBytes().decodeToString())
+                manifestJson.decodeFromString<Manifest>(it.readBytes().decodeToString())
             }
         }.getOrNull()
     }
