@@ -28,19 +28,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Cache des binaires natifs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .native-cache/debs
           key: native-${{ hashFiles('scripts/fetch-native.py') }}
@@ -48,7 +48,11 @@ jobs:
       - name: Récupération de QEMU, proot et du client Docker (arm64 + x86_64)
         run: python3 scripts/fetch-native.py --clean
 
-      - uses: gradle/actions/setup-gradle@v4
+      # cache-provider basic : cache GitHub standard (open source) plutôt que le service
+      # commercial utilisé par défaut depuis la v5.
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
 
       - name: Tests unitaires
         run: ./gradlew --no-daemon testDebugUnitTest
@@ -58,13 +62,13 @@ jobs:
 
       - name: Rapport des tests unitaires
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unit-tests
           path: app/build/reports/tests/
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: androdock-apk
           path: |
@@ -74,7 +78,7 @@ jobs:
 
       # Artefact séparé : mêlés aux APK, ces fichiers changeraient la racine de l'artefact
       # (ancêtre commun) et donc le chemin apk/debug/app-debug.apk utilisé par l'e2e.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: androdock-licences
           path: |
@@ -89,16 +93,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Projet de test Compose (luraku/forever_docker)
         if: inputs.forever
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: luraku/forever_docker
           path: forever
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: androdock-apk
           path: apk
@@ -124,7 +128,7 @@ jobs:
 
       - name: Résultats e2e (rapport, captures, logcat, console VM)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-report
           path: e2e-out/
