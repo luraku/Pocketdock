@@ -170,6 +170,12 @@ a { color: var(--accent); text-decoration: none; }
 .list-item .name { font-weight: 600; }
 .list-item .meta { color: var(--muted); font-size: 12.5px; }
 .list-item .actions { display: flex; gap: 2px; flex: none; }
+/* Projet Compose : boutons libellés (pas de survol sur écran tactile), repliés sous le nom si besoin. */
+.project-row { flex-wrap: wrap; }
+.project-row .main-col { flex: 1 1 200px; }
+.project-actions { flex-wrap: wrap; gap: 6px !important; align-items: center; }
+.btn.small { height: 30px; padding: 0 10px; font-size: 12.5px; gap: 5px; }
+.btn.small svg { width: 14px; height: 14px; }
 
 .pod { overflow: hidden; }
 .pod-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; }
@@ -273,6 +279,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   .tile { min-height: 100px; padding: 14px; }
   .tile .value { font-size: 22px; }
   .list-item { padding: 12px; }
+  .project-actions { width: 100%; padding-left: 44px; }
   .pod-head { flex-wrap: wrap; row-gap: 8px; padding: 12px; }
   .pod-head .pod-icon { display: none; }
   .pod-head .ports { order: 10; flex-basis: 100%; padding-left: 0; }

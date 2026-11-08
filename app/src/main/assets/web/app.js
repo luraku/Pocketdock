@@ -278,14 +278,14 @@
       const job = jobs.find((j) => j.project === p.name);
       const busy = job?.state === "RUNNING";
       const state = busy ? `<span class="pill warn busy">${esc(job.action)}…</span>` : pod ? podState(pod) : `<span class="pill idle">non démarré</span>`;
-      return `<div class="list-item">
+      return `<div class="list-item project-row">
         <div class="pod-icon">${icon("pods")}</div>
         <div class="main-col"><div class="row" style="gap:8px"><span class="name">${esc(p.name)}</span>${state}</div>
           <span class="meta ellipsis">${bytes(p.archiveBytes)} · importé ${ago(p.uploadedAt / 1000)}${job ? ` · dernière opération : ${esc(job.action)} ${job.state === "SUCCEEDED" ? "✓" : job.state === "FAILED" ? "✗" : ""}` : ""}</span></div>
-        <div class="actions">
-          <button class="icon-btn" title="Démarrer (up -d)" data-action="compose" data-op="up" data-name="${esc(p.name)}" ${busy ? "disabled" : ""}>${icon("play")}</button>
-          <button class="icon-btn" title="Reconstruire et démarrer (up -d --build)" data-action="compose" data-op="build" data-name="${esc(p.name)}" ${busy ? "disabled" : ""}>${icon("restart")}</button>
-          <button class="icon-btn" title="Arrêter (down)" data-action="compose" data-op="down" data-name="${esc(p.name)}" ${busy ? "disabled" : ""}>${icon("stop")}</button>
+        <div class="actions project-actions">
+          <button class="btn primary small" title="docker compose up -d" data-action="compose" data-op="up" data-name="${esc(p.name)}" ${busy ? "disabled" : ""}>${icon("play")}Démarrer</button>
+          <button class="btn small" title="docker compose up -d --build" data-action="compose" data-op="build" data-name="${esc(p.name)}" ${busy ? "disabled" : ""}>${icon("restart")}Reconstruire</button>
+          <button class="btn small" title="docker compose down" data-action="compose" data-op="down" data-name="${esc(p.name)}" ${busy ? "disabled" : ""}>${icon("stop")}Arrêter</button>
           ${job ? `<button class="icon-btn" title="Sortie de la dernière opération" data-action="open-job" data-id="${esc(job.id)}">${icon("term")}</button>` : ""}
           <button class="icon-btn danger" title="Supprimer le projet" data-action="compose-rm" data-name="${esc(p.name)}" ${busy ? "disabled" : ""}>${icon("trash")}</button>
         </div></div>`;
@@ -577,17 +577,38 @@
     refreshAll();
   }
 
-  async function uploadProject(file) {
+  function uploadProject(file) {
     const guess = file.name.replace(/\.(tar\.gz|tgz|gz)$/i, "").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "projet";
-    const name = prompt("Nom du projet Compose", guess);
-    if (!name) return;
-    toast(`Envoi de ${file.name} dans la VM…`);
-    try {
-      const r = await fetch(`/v1/compose/${encodeURIComponent(name)}`, { method: "PUT", body: file, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/gzip" } });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
-      toast(`Projet ${name} importé`, "ok");
-    } catch (e) { toast(`Import : ${e.message}`, "bad"); }
-    refreshAll();
+    openDrawer(`<b>Importer un projet Compose</b><div class="muted" style="font-size:12px">${esc(file.name)} · ${bytes(file.size)}</div>`,
+      `<form class="form" data-keep>
+        <div class="field"><label>Nom du projet</label><input class="input mono" name="name" value="${esc(guess)}" required autocapitalize="off" spellcheck="false" pattern="[a-z0-9][a-z0-9_-]*">
+          <span class="hint">Minuscules, chiffres, - et _. Il préfixe les conteneurs, réseaux et volumes du projet.</span></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn primary" type="submit" data-start="1">${icon("play")}Importer et démarrer</button>
+          <button class="btn" type="submit" data-start="0">Importer seulement</button></div>
+      </form>`,
+      (body) => {
+        const form = body.querySelector("form");
+        const onSubmit = async (e) => {
+          e.preventDefault();
+          const name = form.name.value.trim();
+          const start = e.submitter?.dataset.start === "1";
+          form.querySelectorAll("button").forEach((b) => (b.disabled = true));
+          toast(`Envoi de ${file.name} dans la VM…`);
+          try {
+            const r = await fetch(`/v1/compose/${encodeURIComponent(name)}`, { method: "PUT", body: file, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/gzip" } });
+            if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+            toast(`Projet ${name} importé`, "ok");
+            closeDrawer();
+            if (start) await composeOp(name, "up"); else refreshAll();
+          } catch (err) {
+            toast(`Import : ${err.message}`, "bad");
+            form.querySelectorAll("button").forEach((b) => (b.disabled = false));
+          }
+        };
+        form.addEventListener("submit", onSubmit);
+        return () => form.removeEventListener("submit", onSubmit);
+      });
   }
 
   function openMachineDetail(name) {
