@@ -207,6 +207,7 @@
       <div style="flex:1;min-width:220px">
         <div class="title">Moteur Docker ${stateLabel(st)}</div>
         <div class="sub">${esc(e.message || "")}${uptime}</div>${progress}
+        ${e.accel ? `<div class="sub" title="${esc(e.accelInfo || "")}">Accélération : ${e.accel === "kvm" ? "<b>matérielle (KVM)</b>" : "logicielle (émulation)"}</div>` : ""}
       </div>
       ${st === "STOPPED" || st === "ERROR" ? `<button class="btn primary" data-action="engine-start">${icon("play")}Démarrer</button>` : ""}
       ${st === "RUNNING" ? `<button class="btn" data-action="engine-stop">${icon("stop")}Arrêter</button>` : ""}
@@ -416,6 +417,7 @@
       ${toggleField("autoStart", "Démarrer le moteur avec l'application", s.autoStart)}
       ${toggleField("keepAwake", "Empêcher la mise en veille du processeur", s.keepAwake)}
       ${toggleField("exposeOnLan", "Exposer les ports sur le réseau local", s.exposeOnLan)}
+      ${toggleField("hwAccel", "Accélération matérielle (KVM) si l'appareil la permet", s.hwAccel !== false)}
       <div class="row"><span class="spacer"></span><button class="btn primary" type="submit">Enregistrer</button></div>
     </form>` : `<div class="card card-pad muted">Chargement des réglages…</div>`;
     return engineHero() + `<div class="grid grid-2">${form}
@@ -818,7 +820,7 @@ Content-Type: application/json
       switch (f.dataset.form) {
         case "settings": {
           const body = {}; for (const k of ["cpus", "memoryMb", "diskGb"]) body[k] = Number(d[k]);
-          for (const k of ["autoStart", "keepAwake", "exposeOnLan"]) body[k] = f.elements[k].checked;
+          for (const k of ["autoStart", "keepAwake", "exposeOnLan", "hwAccel"]) body[k] = f.elements[k].checked;
           settingsCache = await api("PATCH", "/settings", body); f.removeAttribute("data-dirty"); toast("Réglages enregistrés", "ok"); break;
         }
         case "run":

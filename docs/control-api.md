@@ -97,7 +97,7 @@ Pour le développer sans appareil : `python3 scripts/dashboard-mock/server.py`, 
 | DELETE | `/v1/machines/<nom>` | supprime la machine |
 | POST | `/v1/machines/<nom>/exec` | `{"cmd":"apk add git","timeoutSec":600}` : commande dans la machine (proot, root, `DOCKER_HOST` préconfiguré) |
 | GET | `/v1/settings` | réglages du moteur |
-| PATCH/PUT | `/v1/settings` | modification partielle : `cpus`, `memoryMb`, `diskGb`, `exposeOnLan`, `keepAwake`, `autoStart`, `controlApi` |
+| PATCH/PUT | `/v1/settings` | modification partielle : `cpus`, `memoryMb`, `diskGb`, `exposeOnLan`, `keepAwake`, `autoStart`, `controlApi`, `hwAccel` (accélération KVM si possible) |
 
 Les erreurs renvoient `{"error":"…"}` avec 400 (requête invalide), 401 (jeton), 404 (route ou
 machine inconnue), 409 (conflit) ou 503 (moteur arrêté).

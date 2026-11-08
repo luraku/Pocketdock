@@ -16,6 +16,8 @@ data class EngineConfig(
     val autoStart: Boolean = false,
     /** API de contrôle locale (http://127.0.0.1:7777). Active par défaut sur les builds debug. */
     val controlApi: Boolean = false,
+    /** Accélération matérielle (KVM) si /dev/kvm est utilisable, avec repli logiciel automatique. */
+    val hwAccel: Boolean = true,
 )
 
 class EngineSettings(context: Context) {
@@ -31,6 +33,7 @@ class EngineSettings(context: Context) {
         keepAwake = prefs.getBoolean("keepAwake", true),
         autoStart = prefs.getBoolean("autoStart", false),
         controlApi = prefs.getBoolean("controlApi", dev.androdock.BuildConfig.DEBUG),
+        hwAccel = prefs.getBoolean("hwAccel", true),
     )
 
     fun update(transform: (EngineConfig) -> EngineConfig) {
@@ -40,6 +43,7 @@ class EngineSettings(context: Context) {
             .putBoolean("exposeOnLan", c.exposeOnLan).putBoolean("keepAwake", c.keepAwake)
             .putBoolean("autoStart", c.autoStart)
             .putBoolean("controlApi", c.controlApi)
+            .putBoolean("hwAccel", c.hwAccel)
             .apply()
         _config.value = c
     }

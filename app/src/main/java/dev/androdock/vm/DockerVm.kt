@@ -34,6 +34,10 @@ data class EngineStatus(
     val progress: Float? = null,
     val dockerVersion: String? = null,
     val forwardedPorts: List<String> = emptyList(),
+    /** Mode d'exécution de la VM en cours (null quand elle est arrêtée). */
+    val accel: Accel? = null,
+    /** Résultat de la détection de KVM au dernier démarrage. */
+    val accelInfo: String? = null,
 )
 
 /**
@@ -58,6 +62,8 @@ class DockerVm(
             "https://dl-cdn.alpinelinux.org/alpine/$ALPINE_BRANCH/releases/aarch64/netboot"
         private const val BOOT_TIMEOUT_MS = 20 * 60 * 1000L
         private const val MAX_LOG_LINES = 2000
+        /** Délai pendant lequel un QEMU lancé avec KVM doit survivre avant d'être considéré comme démarré. */
+        private const val KVM_PROBATION_S = 15L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -155,43 +161,60 @@ class DockerVm(
                 "quiet",
             ).joinToString(" ")
 
-            val cmd = listOf(
-                runtime.bin("qemu-system-aarch64").absolutePath,
-                "-M", "virt",
-                "-cpu", "max,pauth-impdef=on",
-                "-accel", "tcg,thread=multi,tb-size=256",
-                "-smp", cfg.cpus.toString(),
-                "-m", "${cfg.memoryMb}M",
-                "-kernel", kernel.absolutePath,
-                "-initrd", initrd.absolutePath,
-                "-append", cmdline,
-                "-drive", "file=${dataDisk.absolutePath},format=raw,if=virtio,cache=writeback,discard=unmap",
-                "-netdev", "user,id=n0,hostfwd=tcp:127.0.0.1:$DOCKER_PORT-:$DOCKER_PORT",
-                "-device", "virtio-net-pci,netdev=n0,romfile=",
-                "-device", "virtio-rng-pci",
-                "-display", "none",
-                "-serial", "stdio",
-                "-monitor", "tcp:127.0.0.1:$MONITOR_PORT,server=on,wait=off",
-            )
-            Log.i(TAG, "Démarrage : ${cmd.joinToString(" ")}")
-
-            setStatus(EngineState.BOOTING, "Démarrage de la VM…", -1f)
-            val pb = ProcessBuilder(cmd).redirectErrorStream(true).directory(vmDir)
-            pb.environment().putAll(runtime.baseEnv())
-            val proc = pb.start()
-            process = proc
-            startedAt = System.currentTimeMillis()
-            lastCpuSample = 0L
-            scope.launch {
-                proc.inputStream.bufferedReader().useLines { lines ->
-                    lines.forEach { line ->
-                        appendConsole(line)
-                        bootHint(line)?.let { hint ->
-                            if (_status.value.state == EngineState.BOOTING) setStatus(EngineState.BOOTING, hint, -1f)
+            val probe = Acceleration.probe()
+            val modes = Acceleration.candidates(cfg.hwAccel, probe)
+            val info = if (!cfg.hwAccel) "Accélération matérielle désactivée dans les réglages" else probe.reason
+            Log.i(TAG, "Accélération : ${modes.joinToString(" puis ")} — $info")
+            var launched: Process? = null
+            for (accel in modes) {
+                val cmd = listOf(runtime.bin("qemu-system-aarch64").absolutePath) + Acceleration.qemuArgs(accel) + listOf(
+                    "-smp", cfg.cpus.toString(),
+                    "-m", "${cfg.memoryMb}M",
+                    "-kernel", kernel.absolutePath,
+                    "-initrd", initrd.absolutePath,
+                    "-append", cmdline,
+                    "-drive", "file=${dataDisk.absolutePath},format=raw,if=virtio,cache=writeback,discard=unmap",
+                    "-netdev", "user,id=n0,hostfwd=tcp:127.0.0.1:$DOCKER_PORT-:$DOCKER_PORT",
+                    "-device", "virtio-net-pci,netdev=n0,romfile=",
+                    "-device", "virtio-rng-pci",
+                    "-display", "none",
+                    "-serial", "stdio",
+                    "-monitor", "tcp:127.0.0.1:$MONITOR_PORT,server=on,wait=off",
+                )
+                Log.i(TAG, "Démarrage : ${cmd.joinToString(" ")}")
+                appendConsole("[Pocketdock] Accélération ${accel.label} — $info")
+                setStatus(EngineState.BOOTING, "Démarrage de la VM…", -1f)
+                _status.update { it.copy(accel = accel, accelInfo = info) }
+                val pb = ProcessBuilder(cmd).redirectErrorStream(true).directory(vmDir)
+                pb.environment().putAll(runtime.baseEnv())
+                val p = pb.start()
+                scope.launch {
+                    p.inputStream.bufferedReader().useLines { lines ->
+                        lines.forEach { line ->
+                            appendConsole(line)
+                            bootHint(line)?.let { hint ->
+                                if (_status.value.state == EngineState.BOOTING) setStatus(EngineState.BOOTING, hint, -1f)
+                            }
                         }
                     }
                 }
+                // KVM peut être accessible mais inutilisable (processeurs hétérogènes, noyau) : QEMU
+                // s'arrête alors aussitôt. On ne surveille le processus qu'après ce délai, puis on
+                // repasse en émulation logicielle.
+                if (accel == Accel.KVM && accel != modes.last()) {
+                    val died = withContext(Dispatchers.IO) { p.waitFor(KVM_PROBATION_S, TimeUnit.SECONDS) }
+                    if (died) {
+                        appendConsole("[Pocketdock] QEMU a refusé KVM (code ${p.exitValue()}) : repli en émulation logicielle")
+                        continue
+                    }
+                }
+                launched = p
+                break
             }
+            val proc: Process = launched ?: error("QEMU n'a pas pu démarrer")
+            process = proc
+            startedAt = System.currentTimeMillis()
+            lastCpuSample = 0L
             watchJob = scope.launch { watchProcess(proc) }
 
             // Attente de l'API Docker (le premier démarrage installe les paquets : plusieurs minutes)
@@ -274,7 +297,7 @@ class DockerVm(
         http?.close(); http = null
         process?.takeIf { it.isAlive }?.destroy()
         process = null
-        _status.update { it.copy(forwardedPorts = emptyList()) }
+        _status.update { it.copy(forwardedPorts = emptyList(), accel = null) }
     }
 
     private fun ensureDisk(sizeGb: Int) {

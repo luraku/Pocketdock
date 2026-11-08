@@ -243,7 +243,9 @@ def main():
                     raise RuntimeError("moteur en erreur : " + e["message"])
                 return e["state"] == "RUNNING", e
             e = wait(ready, args.engine_timeout, 5, "moteur RUNNING")
-            return f"Docker {e.get('dockerVersion')}"
+            # Accélération choisie (sur l'émulateur x86_64 de la CI : émulation logicielle attendue)
+            assert e.get("accel") in ("kvm", "tcg"), e
+            return f"Docker {e.get('dockerVersion')}, accélération {e.get('accel')} ({e.get('accelInfo')})"
         engine_ok = ctx.steps[-1]["status"] == "ok"
 
         if engine_ok:

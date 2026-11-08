@@ -315,6 +315,8 @@ class ControlApi(private val context: Context) {
                 st.dockerVersion?.let { put("dockerVersion", it) }
                 putJsonArray("forwardedPorts") { st.forwardedPorts.forEach { add(JsonPrimitive(it)) } }
                 put("dockerHost", "tcp://127.0.0.1:${DockerVm.DOCKER_PORT}")
+                st.accel?.let { put("accel", it.name.lowercase()) }
+                st.accelInfo?.let { put("accelInfo", it) }
                 put("diskUsageBytes", app.vm.diskUsageBytes())
                 put("startedAt", app.vm.startedAtMs)
                 app.vm.qemuMetrics()?.let { (cpu, rss) -> put("cpuPercent", cpu); put("rssBytes", rss) }
@@ -415,6 +417,7 @@ class ControlApi(private val context: Context) {
         return buildJsonObject {
             put("cpus", c.cpus); put("memoryMb", c.memoryMb); put("diskGb", c.diskGb)
             put("exposeOnLan", c.exposeOnLan); put("keepAwake", c.keepAwake); put("autoStart", c.autoStart)
+            put("hwAccel", c.hwAccel)
             put("controlApi", c.controlApi)
         }
     }
@@ -426,6 +429,7 @@ class ControlApi(private val context: Context) {
                 memoryMb = b.int("memoryMb")?.coerceIn(512, 16384) ?: c.memoryMb,
                 diskGb = b.int("diskGb")?.coerceIn(4, 512) ?: c.diskGb,
                 exposeOnLan = b.bool("exposeOnLan") ?: c.exposeOnLan,
+                hwAccel = b.bool("hwAccel") ?: c.hwAccel,
                 keepAwake = b.bool("keepAwake") ?: c.keepAwake,
                 autoStart = b.bool("autoStart") ?: c.autoStart,
                 controlApi = b.bool("controlApi") ?: c.controlApi,

@@ -87,6 +87,9 @@ fun EngineScreen(vm: AppViewModel) {
                     if (p >= 0f) LinearProgressIndicator(progress = { p }, Modifier.fillMaxWidth())
                     else LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
+                status.accel?.let { a ->
+                    Text("Accélération : ${a.label}" + (status.accelInfo?.let { " — $it" } ?: ""), style = MaterialTheme.typography.bodySmall)
+                }
                 if (status.forwardedPorts.isNotEmpty()) {
                     Text("Ports redirigés : " + status.forwardedPorts.joinToString(", "), style = MaterialTheme.typography.bodySmall)
                 }
@@ -143,6 +146,7 @@ fun EngineScreen(vm: AppViewModel) {
                 ToggleRow("Démarrer avec l'application", config.autoStart) { v -> vm.updateConfig { it.copy(autoStart = v) } }
                 ToggleRow("Empêcher la mise en veille du processeur", config.keepAwake) { v -> vm.updateConfig { it.copy(keepAwake = v) } }
                 ToggleRow("Exposer les ports sur le réseau local", config.exposeOnLan) { v -> vm.updateConfig { it.copy(exposeOnLan = v) } }
+                ToggleRow("Accélération matérielle (KVM) si possible", config.hwAccel) { v -> vm.updateConfig { it.copy(hwAccel = v) } }
                 ToggleRow("API de contrôle (127.0.0.1:${dev.androdock.BuildConfig.CONTROL_PORT})", config.controlApi) { v ->
                     vm.updateConfig { it.copy(controlApi = v) }
                 }
