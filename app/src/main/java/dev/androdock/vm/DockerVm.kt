@@ -98,8 +98,13 @@ class DockerVm(
         _status.update { it.copy(state = state, message = message, progress = progress) }
     }
 
-    private fun appendConsole(line: String) {
+    private fun appendConsole(raw: String) {
+        val line = ConsoleText.clean(raw) ?: return
         _console.update { old ->
+            // La console coupe aussi sur \r : chaque étape d'une barre de progression arrive seule.
+            if (ConsoleText.isProgress(line) && old.isNotEmpty() && ConsoleText.isProgress(old.last())) {
+                return@update old.dropLast(1) + line
+            }
             val next = if (old.size >= MAX_LOG_LINES) old.drop(old.size - MAX_LOG_LINES + 1) else old
             next + line
         }
