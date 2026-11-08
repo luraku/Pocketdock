@@ -421,7 +421,27 @@
         <button class="btn ghost" data-action="load-console">${icon("restart")}Actualiser</button></div>
         <pre class="term" id="console">${esc(consoleCache || "Cliquez sur Actualiser.")}</pre>
         <div class="row" style="margin-top:14px"><span class="spacer"></span>
-        <button class="btn danger" data-action="reset-engine">${icon("trash")}Réinitialiser les données Docker</button></div></div></div>`;
+        <button class="btn danger" data-action="reset-engine">${icon("trash")}Réinitialiser les données Docker</button></div></div></div>` + apiCard();
+  }
+
+  /** Jeton de l'API de contrôle, pour piloter Pocketdock depuis une autre application du téléphone. */
+  let showToken = false;
+  function apiCard() {
+    const shown = showToken ? token : `${(token || "").slice(0, 6)}${"•".repeat(18)}`;
+    return `<div class="card card-pad"><h2>API de contrôle</h2>
+      <p class="muted" style="margin-top:0">Une application du téléphone peut piloter Pocketdock sur
+        <span class="mono">http://127.0.0.1:${location.port || 7777}/v1/</span> avec ce jeton
+        (en-tête <span class="mono">Authorization: Bearer …</span>). Il donne un accès complet : ne le confiez qu'à des applications de confiance.</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><input class="input mono" readonly value="${esc(shown)}" style="flex:1 1 220px;min-width:0" aria-label="Jeton">
+        <button class="btn" data-action="token-toggle">${showToken ? "Masquer" : "Afficher"}</button>
+        <button class="btn primary" data-action="token-copy">Copier</button></div>
+      <p class="muted" style="margin:14px 0 6px">Exemple : lancer un conteneur</p>
+      <pre class="term">POST /v1/containers/run
+Authorization: Bearer &lt;jeton&gt;
+Content-Type: application/json
+
+{"image": "nginx:alpine", "ports": ["8080:80"]}</pre>
+      <p class="muted" style="margin-bottom:0">Toutes les routes : <a href="#" data-action="open-url" data-url="https://github.com/luraku/Pocketdock/blob/ccr-e93cecaf-5a3oeg/docs/control-api.md">docs/control-api.md</a></p></div>`;
   }
   let consoleCache = "";
 
@@ -688,6 +708,14 @@
       }
       case "goto-pod": S.openPods.add(el.dataset.key); location.hash = el.dataset.key.startsWith("compose:") ? "#/stacks" : "#/pods"; return;
       case "compose-import": $("#compose-file").click(); return;
+      case "token-toggle": showToken = !showToken; render(); return;
+      case "token-copy":
+        try {
+          if (bridge?.copyText) bridge.copyText("Jeton Pocketdock", token);
+          else await navigator.clipboard.writeText(token);
+          toast("Jeton copié", "ok");
+        } catch (_) { showToken = true; render(); toast("Copie impossible : sélectionnez le jeton affiché", "bad"); }
+        return;
       case "pod-start": return act(`pod:${el.dataset.key}`, "Démarrage", () => each((id) => docker("POST", `/containers/${id}/start`)));
       case "pod-stop": return act(`pod:${el.dataset.key}`, "Arrêt", () => each((id) => docker("POST", `/containers/${id}/stop?t=10`)));
       case "pod-restart": return act(`pod:${el.dataset.key}`, "Redémarrage", () => each((id) => docker("POST", `/containers/${id}/restart?t=10`)));
@@ -708,6 +736,7 @@
         const url = `http://127.0.0.1:${el.dataset.port}/`;
         return bridge ? bridge.openUrl(url) : window.open(url, "_blank");
       }
+      case "open-url": ev.preventDefault(); return bridge ? bridge.openUrl(el.dataset.url) : window.open(el.dataset.url, "_blank");
       case "open-run": return openRunForm();
       case "run-image": return openRunForm(el.dataset.image);
       case "open-pull": return openPullForm();

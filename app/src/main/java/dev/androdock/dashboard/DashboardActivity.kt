@@ -125,6 +125,18 @@ class DashboardActivity : Activity() {
             android.util.Log.i("AndrodockDashboard", "ready view=$view engine=$engine pods=$pods containers=$containers")
         }
 
+        /** Copie dans le presse-papiers (jeton de l'API) : l'API Clipboard du navigateur est souvent refusée en WebView. */
+        @JavascriptInterface
+        fun copyText(label: String, text: String) = runOnUiThread {
+            val cm = getSystemService(android.content.ClipboardManager::class.java)
+            val clip = android.content.ClipData.newPlainText(label, text)
+            // Contenu sensible : masqué dans l'aperçu du presse-papiers d'Android 13+.
+            clip.description.extras = android.os.PersistableBundle().apply {
+                putBoolean("android.content.extra.IS_SENSITIVE", true)
+            }
+            cm.setPrimaryClip(clip)
+        }
+
         @JavascriptInterface
         fun openUrl(url: String) = runOnUiThread {
             val uri = Uri.parse(url)
