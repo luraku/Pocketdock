@@ -34,10 +34,16 @@ class AndrodockApp : Application() {
                 description = "État du moteur Docker et des machines"
             }
         )
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(CHANNEL_ACCESS, "Demandes d'accès", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Applications qui demandent à piloter Pocketdock"
+            }
+        )
     }
 
     companion object {
         const val CHANNEL_ENGINE = "engine"
+        const val CHANNEL_ACCESS = "access"
         lateinit var instance: AndrodockApp private set
     }
 }

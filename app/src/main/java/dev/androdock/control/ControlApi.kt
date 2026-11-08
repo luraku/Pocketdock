@@ -65,6 +65,11 @@ class ControlApi(private val context: Context) {
             .also { tokenFile.writeText(it) }
     }
 
+    /** Applications tierces autorisées (jeton et droits propres), après accord de l'utilisateur. */
+    val clients = AppClients(File(context.filesDir, "control/clients.json")).also {
+        it.onRequest = { r -> ConsentActivity.notify(context, r) }
+    }
+
     val isRunning: Boolean get() = server != null
 
     @Synchronized
@@ -87,11 +92,22 @@ class ControlApi(private val context: Context) {
     private suspend fun handle(req: HttpRequest): HttpResponse {
         if (req.path == "/v1/health") return ok(buildJsonObject { put("ok", true) })
         if (req.method == "GET" && !req.path.startsWith("/v1/")) return staticFile(req.path)
-        val auth = req.header("authorization")?.removePrefix("Bearer ")?.trim()
-        if (auth != token) return error(401, "jeton invalide ou absent")
-
         val seg = req.path.trim('/').split('/')
         if (seg.firstOrNull() != "v1") return error(404, "route inconnue")
+        // Demande d'accès d'une application : seule route sans jeton (l'utilisateur doit l'accepter).
+        if (seg.getOrNull(1) == "pair") return try { pair(req, seg.drop(2)) } catch (e: IllegalArgumentException) { error(400, e.message ?: "requête invalide") }
+
+        val auth = req.header("authorization")?.removePrefix("Bearer ")?.trim().orEmpty()
+        if (auth != token) {
+            val client = clients.authenticate(auth) ?: return error(401, "jeton invalide ou absent")
+            val need = AppClients.requiredScope(req.method, seg.drop(1))
+            if (need == null || !client.has(need)) {
+                return HttpResponse.json(403, buildJsonObject {
+                    put("error", if (need == null) "réservé au tableau de bord de Pocketdock" else "droit « ${need.id} » requis")
+                    need?.let { put("required", it.id) }
+                }.toString())
+            }
+        }
         return try {
             route(req, seg.drop(1))
         } catch (e: IllegalArgumentException) {
@@ -193,6 +209,21 @@ class ControlApi(private val context: Context) {
                 execResponse(app.machines.shell(s[1], cmd), body)
             }
 
+            // ---- Applications autorisées (jeton principal uniquement, voir requiredScope)
+            m == "GET" && s == listOf("clients") -> ok(clientsJson())
+            m == "POST" && s.size == 4 && s[0] == "clients" && s[1] == "pending" && s[3] == "approve" -> {
+                val ids = (obj(req)["scopes"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }
+                val r = clients.pairing(s[2]) ?: return error(404, "demande inconnue ou expirée")
+                try { clients.approve(s[2], ids?.let { AppClients.parseScopes(it) } ?: r.scopes) } catch (e: NoSuchElementException) { return error(404, e.message ?: "demande inconnue") }
+                ok(clientsJson())
+            }
+            m == "POST" && s.size == 4 && s[0] == "clients" && s[1] == "pending" && s[3] == "deny" -> {
+                try { clients.deny(s[2]) } catch (e: NoSuchElementException) { return error(404, e.message ?: "demande inconnue") }
+                ok(clientsJson())
+            }
+            m == "DELETE" && s.size == 2 && s[0] == "clients" ->
+                if (clients.revoke(s[1])) ok(clientsJson()) else error(404, "application inconnue")
+
             m == "GET" && s == listOf("settings") -> ok(settings())
             (m == "PUT" || m == "PATCH") && s == listOf("settings") -> {
                 updateSettings(obj(req))
@@ -202,6 +233,57 @@ class ControlApi(private val context: Context) {
             }
 
             else -> error(404, "route inconnue : $m /v1/${s.joinToString("/")}")
+        }
+    }
+
+    // ------------------------------------------------------------------ applications tierces
+
+    /**
+     * POST /v1/pair {"name","scopes":[…]} → demande en attente de l'accord de l'utilisateur ;
+     * GET /v1/pair/<id> → PENDING, puis APPROVED avec le jeton (remis une seule fois), DENIED ou EXPIRED.
+     */
+    private fun pair(req: HttpRequest, s: List<String>): HttpResponse = when {
+        req.method == "POST" && s.isEmpty() -> {
+            val b = obj(req)
+            val ids = (b["scopes"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }.orEmpty()
+            try {
+                val r = clients.request(b.str("name") ?: throw IllegalArgumentException("champ name requis"), AppClients.parseScopes(ids))
+                HttpResponse.json(202, buildJsonObject {
+                    put("id", r.id); put("state", r.state.name); put("poll", "/v1/pair/${r.id}")
+                    put("message", "Demande envoyée : l'utilisateur doit l'accepter sur le téléphone (5 minutes).")
+                }.toString())
+            } catch (e: IllegalStateException) { error(429, e.message ?: "trop de demandes") }
+        }
+        req.method == "GET" && s.size == 1 -> {
+            val r = clients.collect(s[0]) ?: return error(404, "demande inconnue ou déjà relevée")
+            ok(buildJsonObject {
+                put("id", r.id); put("state", r.state.name)
+                r.token?.let { put("token", it) }
+                if (r.state == PairRequest.State.APPROVED) putJsonArray("scopes") { r.grantedScopes.sortedBy { it.ordinal }.forEach { add(JsonPrimitive(it.id)) } }
+            })
+        }
+        else -> error(404, "route inconnue")
+    }
+
+    private fun clientsJson() = buildJsonObject {
+        putJsonArray("clients") {
+            clients.list().forEach { c ->
+                add(buildJsonObject {
+                    put("id", c.id); put("name", c.name); put("createdAt", c.createdAt); put("lastUsedAt", c.lastUsedAt)
+                    putJsonArray("scopes") { c.scopes.forEach { add(JsonPrimitive(it)) } }
+                })
+            }
+        }
+        putJsonArray("pending") {
+            clients.pendingRequests().forEach { r ->
+                add(buildJsonObject {
+                    put("id", r.id); put("name", r.name); put("createdAt", r.createdAt)
+                    putJsonArray("scopes") { r.scopes.sortedBy { it.ordinal }.forEach { add(JsonPrimitive(it.id)) } }
+                })
+            }
+        }
+        putJsonArray("scopes") {
+            Scope.entries.forEach { sc -> add(buildJsonObject { put("id", sc.id); put("label", sc.label) }) }
         }
     }
 

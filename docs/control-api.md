@@ -7,8 +7,46 @@ codage, scripts, autres applications de l'appareil.
 - Activation : **Moteur → API de contrôle**. Active par défaut sur les builds debug, désactivée
   sur les builds release.
 - Authentification : en-tête `Authorization: Bearer <jeton>` sur toutes les routes sauf
-  `/v1/health`. Le jeton est généré au premier lancement dans `files/control/token`. On peut
-  le copier depuis l'onglet Moteur.
+  `/v1/health` et `/v1/pair`. Deux sortes de jetons :
+  - le **jeton principal** (tous les droits), généré au premier lancement dans
+    `files/control/token` ; il est affiché dans le tableau de bord, **Moteur → API de contrôle** ;
+  - un **jeton par application**, obtenu par une demande d'accès que l'utilisateur accepte
+    (ci-dessous), avec des droits limités et révocable à tout moment.
+
+## Applications tierces : demande d'accès
+
+Une application du téléphone obtient son propre jeton en trois temps :
+
+1. `POST /v1/pair` (sans jeton) `{"name": "Mon appli", "scopes": ["read", "run"]}` → `202`
+   `{"id": "…", "state": "PENDING", "poll": "/v1/pair/<id>"}`. Pocketdock affiche une notification ;
+   l'utilisateur accepte (en retirant éventuellement des droits) ou refuse, dans les 5 minutes.
+   Au plus 3 demandes en attente à la fois (`429` au-delà).
+2. `GET /v1/pair/<id>` toutes les 2 à 3 secondes : `PENDING`, puis `APPROVED` avec
+   `"token": "pdk_…"` et les `scopes` accordés, ou `DENIED` / `EXPIRED`. **Le jeton n'est remis
+   qu'une fois** : l'application doit le conserver.
+3. Ensuite, toutes les requêtes avec `Authorization: Bearer pdk_…`. Une route hors des droits
+   accordés répond `403 {"error": "droit « run » requis", "required": "run"}` ; un jeton révoqué,
+   `401`.
+
+| Droit | Permet |
+|---|---|
+| `read` | toutes les lectures (`GET`) : état, conteneurs, images, stacks, tâches, journaux, réglages |
+| `run` | `engine/start`, `containers/run`, `images/pull`, import et `up`/`start`/`restart`/`pull` d'une stack |
+| `manage` | arrêt et suppression : `down`/`stop`/`DELETE` d'une stack, `start`/`stop`/`restart`/`kill` et suppression d'un conteneur via `/v1/docker` |
+| `admin` | tout le reste (vaut tous les droits) : `exec`, API Docker complète, machines, réglages, arrêt et réinitialisation du moteur |
+
+Le nom affiché à l'utilisateur est celui que déclare l'application : Pocketdock ne peut pas
+vérifier quelle application parle sur `127.0.0.1`. Seule l'empreinte SHA-256 des jetons est
+enregistrée (`files/control/clients.json`).
+
+Gestion (jeton principal uniquement, utilisée par le tableau de bord) :
+
+| Méthode | Route | Effet |
+|---|---|---|
+| GET | `/v1/clients` | applications autorisées, demandes en attente, liste des droits |
+| POST | `/v1/clients/pending/<id>/approve` | accepte (`{"scopes": [...]}` facultatif, sous-ensemble de la demande) |
+| POST | `/v1/clients/pending/<id>/deny` | refuse |
+| DELETE | `/v1/clients/<id>` | révoque : le jeton cesse de fonctionner |
 
 ## Depuis un ordinateur (adb)
 
@@ -73,6 +111,7 @@ CI le lance sur un émulateur x86_64 (job `e2e`, artefact `e2e-report`).
 
 ## Sécurité
 
-Le jeton protège contre les autres applications de l'appareil, qui peuvent toutes joindre
-`127.0.0.1`. Ne l'active pas en release sans raison. Voir aussi TSK-019 (sécurisation de
+Les jetons protègent contre les autres applications de l'appareil, qui peuvent toutes joindre
+`127.0.0.1`. Donnez à chaque application son propre jeton, avec les droits minimaux, plutôt que
+le jeton principal. Ne l'active pas en release sans raison. Voir aussi TSK-019 (sécurisation de
 l'API Docker elle-même).

@@ -58,6 +58,7 @@
   // ------------------------------------------------------------------ état
   const S = {
     status: null, containers: [], images: [], volumes: [], machines: { items: [], distros: [] }, compose: { projects: [], jobs: [] },
+    clients: { clients: [], pending: [], scopes: [] },
     cpuHist: [], memHist: [], openPods: new Set((() => { try { return JSON.parse(localStorage.getItem("androdock.openPods") || "[]"); } catch (_) { return []; } })()),
     busy: new Set(),
   };
@@ -123,6 +124,7 @@
     } catch (_) {}
   }
   async function refreshDocker(all = false) {
+    if (all || current() === "engine") { try { S.clients = await api("GET", "/clients"); } catch (_) {} }
     if (!running()) { S.containers = []; return; }
     try { S.containers = await docker("GET", "/containers/json?all=1"); } catch (_) {}
     if (all || ["images", "overview"].includes(current())) { try { S.images = await docker("GET", "/images/json"); } catch (_) {} }
@@ -424,17 +426,39 @@
         <button class="btn danger" data-action="reset-engine">${icon("trash")}Réinitialiser les données Docker</button></div></div></div>` + apiCard();
   }
 
+  /** Demandes d'accès en attente et applications autorisées (jeton et droits propres). */
+  function clientsBlock() {
+    const label = (id) => (S.clients.scopes || []).find((x) => x.id === id)?.label || id;
+    const chips = (ids) => ids.map((id) => `<span class="pill idle" title="${esc(label(id))}">${esc(id)}</span>`).join(" ");
+    const pend = (S.clients.pending || []).map((r) => `<div class="list-item project-row">
+        <div class="main-col"><span class="name">« ${esc(r.name)} » demande l'accès</span>
+          <span class="meta">${chips(r.scopes)} · nom déclaré, non vérifié</span></div>
+        <div class="actions project-actions" style="padding-left:0">
+          <button class="btn primary small" data-action="client-approve" data-id="${esc(r.id)}">Autoriser</button>
+          <button class="btn small" data-action="client-deny" data-id="${esc(r.id)}">Refuser</button></div></div>`).join("");
+    const apps = (S.clients.clients || []).map((c) => `<div class="list-item">
+        <div class="main-col"><span class="name">${esc(c.name)}</span>
+          <span class="meta">${chips(c.scopes)} · ${c.lastUsedAt ? "utilisée " + ago(c.lastUsedAt / 1000) : "jamais utilisée"}</span></div>
+        <div class="actions"><button class="btn small" data-action="client-revoke" data-id="${esc(c.id)}" data-name="${esc(c.name)}">Révoquer</button></div></div>`).join("");
+    return `<h3 style="margin:18px 0 6px">Applications autorisées</h3>
+      <div class="list" style="border:1px solid var(--line);border-radius:12px">${pend}${apps ||
+        (pend ? "" : `<div class="list-item muted">Aucune. Une application demande l'accès avec <span class="mono">POST /v1/pair</span> ; vous l'acceptez ici ou depuis la notification.</div>`)}</div>`;
+  }
+
   /** Jeton de l'API de contrôle, pour piloter Pocketdock depuis une autre application du téléphone. */
   let showToken = false;
   function apiCard() {
     const shown = showToken ? token : `${(token || "").slice(0, 6)}${"•".repeat(18)}`;
     return `<div class="card card-pad"><h2>API de contrôle</h2>
+      <h3 style="margin:0 0 6px">Jeton principal</h3>
       <p class="muted" style="margin-top:0">Une application du téléphone peut piloter Pocketdock sur
         <span class="mono">http://127.0.0.1:${location.port || 7777}/v1/</span> avec ce jeton
-        (en-tête <span class="mono">Authorization: Bearer …</span>). Il donne un accès complet : ne le confiez qu'à des applications de confiance.</p>
+        (en-tête <span class="mono">Authorization: Bearer …</span>). Le jeton principal donne tous les droits ; pour une
+        application, préférez une <b>demande d'accès</b> (<span class="mono">POST /v1/pair</span>) : jeton propre, droits limités, révocable.</p>
       <div class="row" style="gap:8px;flex-wrap:wrap"><input class="input mono" readonly value="${esc(shown)}" style="flex:1 1 220px;min-width:0" aria-label="Jeton">
         <button class="btn" data-action="token-toggle">${showToken ? "Masquer" : "Afficher"}</button>
         <button class="btn primary" data-action="token-copy">Copier</button></div>
+      ${clientsBlock()}
       <p class="muted" style="margin:14px 0 6px">Exemple : lancer un conteneur</p>
       <pre class="term">POST /v1/containers/run
 Authorization: Bearer &lt;jeton&gt;
@@ -709,6 +733,16 @@ Content-Type: application/json
       case "goto-pod": S.openPods.add(el.dataset.key); location.hash = el.dataset.key.startsWith("compose:") ? "#/stacks" : "#/pods"; return;
       case "compose-import": $("#compose-file").click(); return;
       case "token-toggle": showToken = !showToken; render(); return;
+      case "client-approve": case "client-deny":
+        try {
+          S.clients = await api("POST", `/clients/pending/${encodeURIComponent(el.dataset.id)}/${a === "client-approve" ? "approve" : "deny"}`, {});
+          toast(a === "client-approve" ? "Accès accordé" : "Demande refusée", "ok");
+        } catch (e) { toast(e.message, "bad"); }
+        render(); return;
+      case "client-revoke":
+        if (!confirm(`Retirer l'accès de « ${el.dataset.name} » ? Son jeton cessera de fonctionner.`)) return;
+        try { S.clients = await api("DELETE", `/clients/${encodeURIComponent(el.dataset.id)}`); toast("Accès retiré", "ok"); } catch (e) { toast(e.message, "bad"); }
+        render(); return;
       case "token-copy":
         try {
           if (bridge?.copyText) bridge.copyText("Jeton Pocketdock", token);

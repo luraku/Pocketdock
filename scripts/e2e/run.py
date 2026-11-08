@@ -54,10 +54,10 @@ def adb(ctx, *args, check=True, capture=True, timeout=300):
     return r.stdout if capture else b""
 
 
-def api(ctx, method, path, body=None, timeout=60, raw=False):
+def api(ctx, method, path, body=None, timeout=60, raw=False, token=None):
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(API + path, data=data, method=method)
-    req.add_header("Authorization", f"Bearer {ctx.token}")
+    req.add_header("Authorization", f"Bearer {token or ctx.token}")
     if data is not None:
         req.add_header("Content-Type", "application/json")
     try:
@@ -187,6 +187,31 @@ def main():
         code, s = api(ctx, "PATCH", "/settings", {"cpus": 4, "memoryMb": mem, "diskGb": 16, "keepAwake": True})
         assert code == 200 and s["cpus"] == 4 and s["memoryMb"] == mem and s["diskGb"] == 16, s
         return s
+
+    @step(ctx, "API : demande d'accès d'une application, droits, révocation")
+    def _():
+        code, r = api(ctx, "POST", "/pair", {"name": "e2e", "scopes": ["read", "run"]})
+        assert code == 202 and r["state"] == "PENDING", (code, r)
+        rid = r["id"]
+        time.sleep(1)
+        notif = "Demande d'accès" in adb(ctx, "shell", "dumpsys", "notification", "--noredact", check=False).decode(errors="replace")
+        code, c = api(ctx, "GET", "/clients")
+        assert code == 200 and any(p["id"] == rid for p in c["pending"]), c
+        # l'utilisateur n'accorde que « read »
+        code, c = api(ctx, "POST", f"/clients/pending/{rid}/approve", {"scopes": ["read"]})
+        assert code == 200, c
+        code, got = api(ctx, "GET", f"/pair/{rid}")
+        assert code == 200 and got["state"] == "APPROVED" and got["token"].startswith("pdk_") and got["scopes"] == ["read"], got
+        tok = got["token"]
+        assert api(ctx, "GET", f"/pair/{rid}")[0] == 404, "jeton remis une seule fois"
+        assert api(ctx, "GET", "/status", token=tok)[0] == 200
+        code, e = api(ctx, "POST", "/containers/run", {"image": "hello-world"}, token=tok)
+        assert code == 403 and e.get("required") == "run", (code, e)
+        assert api(ctx, "GET", "/clients", token=tok)[0] == 403, "gestion des applications réservée au jeton principal"
+        cid = next(x["id"] for x in api(ctx, "GET", "/clients")[1]["clients"] if x["name"] == "e2e")
+        assert api(ctx, "DELETE", f"/clients/{cid}")[0] == 200
+        assert api(ctx, "GET", "/status", token=tok)[0] == 401, "jeton révoqué"
+        return f"accord, droit read seul, 403 sur run, révocation ; notification {'affichée' if notif else 'non vue'}"
 
     @step(ctx, "Tableau de bord web servi par l'API")
     def _():
