@@ -22,6 +22,19 @@ android {
         buildConfigField("int", "CONTROL_PORT", "7777")
     }
 
+    signingConfigs {
+        // Clé de debug fixe, versionnée : sans elle, chaque run de CI génère une nouvelle clé et
+        // Android refuse d'installer l'APK par-dessus une version précédente (signatures
+        // différentes). Elle n'a rien de secret (mots de passe standard « android ») : elle ne
+        // sert qu'aux builds de test. Une vraie clé de publication devra rester hors du dépôt.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

@@ -95,7 +95,9 @@ Aucune version n'est encore publiée sur un store. L'APK est produit par la CI �
 
 Ou par adb : `adb install -r pocketdock-debug.apk`.
 
-> Le build `release` est pour l'instant signé avec la clé de debug. Le build **debug** active l'API
+> Les APK de la CI sont signés avec une clé de debug fixe (`app/debug.keystore`), ce qui permet
+> d'installer une nouvelle version par-dessus l'ancienne. Le build `release` est pour l'instant signé
+> avec cette même clé. Le build **debug** active l'API
 > de contrôle par défaut, le build release la désactive.
 
 ## Premiers pas
