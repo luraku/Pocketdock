@@ -11,8 +11,8 @@ Les images officielles `acore/*` n'existent qu'en amd64. Le workflow **Images Az
 (Actions → Run workflow) compile AzerothCore sur une machine arm64 et publie
 `ghcr.io/luraku/pocketdock-azerothcore:{db-import,client-data,authserver,worldserver}`.
 
-Après le premier run : GitHub → profil → **Packages** → `pocketdock-azerothcore` → **Package settings**
-→ **Change visibility** → **Public**, sinon Pocketdock ne peut pas télécharger les images.
+Le paquet hérite de la visibilité publique du dépôt : rien à régler. (Sur un fork privé, il faudrait
+le rendre public : Packages → `pocketdock-azerothcore` → Package settings → Change visibility.)
 
 ## 2. Régler le moteur
 
