@@ -290,11 +290,11 @@ def main():
                     assert code == 200, r
                     return r["Id"]
                 api(ctx, "DELETE", f"/docker/images/{ref}?force=1")
-                code, n = api(ctx, "POST", "/images/pull", {"ref": ref}, timeout=1800)
+                code, n = api(ctx, "POST", "/images/pull", {"ref": ref, "native": True}, timeout=1800)
                 assert code == 200 and n["method"] == "native", n
                 native_id = image_id()
                 api(ctx, "DELETE", f"/docker/images/{ref}?force=1")
-                code, d = api(ctx, "POST", "/images/pull", {"ref": ref, "native": False}, timeout=1800)
+                code, d = api(ctx, "POST", "/images/pull", {"ref": ref}, timeout=1800)
                 assert code == 200 and d["method"] == "docker", d
                 assert image_id() == native_id, "même identifiant d'image qu'avec docker pull"
                 ratio = d["ms"] / max(n["ms"], 1)

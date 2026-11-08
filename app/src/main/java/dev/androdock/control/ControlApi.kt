@@ -160,8 +160,8 @@ class ControlApi(private val context: Context) {
                 val b = obj(req)
                 val ref = b.str("ref") ?: throw IllegalArgumentException("champ ref requis")
                 requireEngine()
-                // Téléchargement natif (Android) par défaut, repli sur docker pull ; "native": false pour forcer docker pull.
-                val o = app.puller.pull(ref, preferNative = b.bool("native") != false)
+                // docker pull par défaut ; "native": true pour le téléchargement natif (expérimental, TSK-030).
+                val o = app.puller.pull(ref, preferNative = b.bool("native") == true)
                 ok(buildJsonObject { put("pulled", ref); put("method", o.method); put("ms", o.ms); put("detail", o.detail) })
             }
 

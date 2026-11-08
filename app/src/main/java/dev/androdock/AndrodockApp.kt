@@ -27,7 +27,8 @@ class AndrodockApp : Application() {
         vm = DockerVm(this, runtime, settings)
         machines = MachineManager(this, runtime)
         puller = dev.androdock.registry.ImagePuller(vm.docker, cacheDir)
-        compose = ComposeManager(vm.docker, java.io.File(filesDir, "compose"), puller)
+        // Pré-téléchargement natif des images Compose désactivé : plus lent que docker pull (TSK-030, run 58).
+        compose = ComposeManager(vm.docker, java.io.File(filesDir, "compose"), puller = null)
         control = ControlApi(this)
         if (settings.config.value.controlApi) control.start()
 
