@@ -29,6 +29,10 @@
     <nav class="bottomnav" id="bottomnav"></nav>
   </div>
 
+  <!-- Hors de #view : #view est redessiné toutes les 2 s ; un champ recréé pendant que le sélecteur
+       de fichiers d'Android est ouvert ne recevrait jamais le fichier choisi. -->
+  <input type="file" id="compose-file" accept=".gz,.tgz,application/gzip" data-upload hidden>
+
   <div id="drawer" class="drawer" hidden>
     <div class="drawer-backdrop" data-close></div>
     <div class="drawer-panel" role="dialog" aria-modal="true">
@@ -47,6 +51,7 @@
       <symbol id="i-logo" viewBox="0 0 32 32"><rect x="5" y="9" width="6" height="6" rx="1.2" fill="currentColor" opacity=".85"/><rect x="12.5" y="9" width="6" height="6" rx="1.2" fill="currentColor"/><rect x="20" y="9" width="6" height="6" rx="1.2" fill="currentColor" opacity=".85"/><rect x="12.5" y="2" width="6" height="6" rx="1.2" fill="currentColor" opacity=".6"/><path d="M2 17h26c1.6 0 2.4-2.4 4-2.4 0 3.2-2.4 4.8-4 4.8-2.4 5.6-8 8.8-15.2 8.8C6.4 28.2 2.8 24 2 17z" fill="currentColor" opacity=".55"/></symbol>
       <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
       <symbol id="i-pods" viewBox="0 0 24 24"><path d="M12 2l8.5 4.9v9.8L12 21.6l-8.5-4.9V6.9z M12 12l8.5-5 M12 12v9.6 M12 12L3.5 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+      <symbol id="i-stack" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="4" y="9.5" width="16" height="5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="4" y="16" width="16" height="5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 5.5h2 M7 12h2 M7 18.5h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
       <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z M3 13l9 5 9-5 M3 17.5l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
       <symbol id="i-disk" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6 M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
       <symbol id="i-machine" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 21h8 M12 17v4 M7 9l3 2-3 2 M12 13h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>

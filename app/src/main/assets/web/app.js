@@ -82,7 +82,8 @@
   // ------------------------------------------------------------------ navigation
   const VIEWS = [
     { id: "overview", label: "Vue d'ensemble", short: "Accueil", icon: "home" },
-    { id: "pods", label: "Pods & conteneurs", short: "Pods", icon: "pods" },
+    { id: "stacks", label: "Stacks Compose", short: "Stacks", icon: "stack" },
+    { id: "pods", label: "Conteneurs", short: "Conteneurs", icon: "pods" },
     { id: "images", label: "Images", short: "Images", icon: "layers" },
     { id: "volumes", label: "Volumes", short: "Volumes", icon: "disk" },
     { id: "machines", label: "Machines Linux", short: "Machines", icon: "machine" },
@@ -92,7 +93,8 @@
   window.addEventListener("hashchange", () => { render(); refreshAll(); });
 
   function renderNav() {
-    const counts = { pods: S.containers.length || "", images: S.images.length || "", volumes: S.volumes.length || "", machines: S.machines.items.length || "" };
+    const stacksN = new Set([...(S.compose.projects || []).map((p) => p.name), ...pods().filter((p) => p.compose).map((p) => p.name)]).size;
+    const counts = { stacks: stacksN || "", pods: pods().filter((p) => !p.compose).length || "", images: S.images.length || "", volumes: S.volumes.length || "", machines: S.machines.items.length || "" };
     const cur = current();
     $("#nav").innerHTML = VIEWS.map((v) =>
       `<a href="#/${v.id}" class="${cur === v.id ? "active" : ""}">${icon(v.icon)}<span>${v.label}</span><span class="count">${counts[v.id] ?? ""}</span></a>`).join("");
@@ -125,7 +127,7 @@
     try { S.containers = await docker("GET", "/containers/json?all=1"); } catch (_) {}
     if (all || ["images", "overview"].includes(current())) { try { S.images = await docker("GET", "/images/json"); } catch (_) {} }
     if (all || ["volumes", "overview"].includes(current())) { try { S.volumes = (await docker("GET", "/volumes")).Volumes || []; } catch (_) {} }
-    if (all || ["pods", "overview"].includes(current())) { try { S.compose = await api("GET", "/compose"); } catch (_) {} }
+    if (all || ["stacks", "pods", "overview"].includes(current())) { try { S.compose = await api("GET", "/compose"); } catch (_) {} }
   }
   async function refreshAll() { await refreshStatus(); await refreshDocker(); render(); }
 
@@ -161,7 +163,7 @@
     const v = VIEWS.find((x) => x.id === current()) || VIEWS[0];
     $("#view-title").textContent = v.label;
     $("#topbar-actions").innerHTML = topActions(v.id);
-    const html = ({ overview, pods: podsView, images, volumes, machines, engine })[v.id]();
+    const html = ({ overview, stacks: stacksView, pods: podsView, images, volumes, machines, engine })[v.id]();
     const view = $("#view");
     // évite de détruire un formulaire modifié mais pas encore enregistré
     if (view.dataset.view === v.id && view.querySelector("[data-keep][data-dirty]")) return;
@@ -183,6 +185,7 @@
       ? `<button class="btn primary" data-action="engine-start">${icon("play")}<span class="btn-label">Démarrer</span></button>`
       : e === "RUNNING" ? `<button class="btn" data-action="engine-stop">${icon("stop")}<span class="btn-label">Arrêter</span></button>` : "";
     const extra = {
+      stacks: running() ? `<button class="btn primary" data-action="compose-import">${icon("down")}<span class="btn-label">Importer</span></button>` : "",
       pods: running() ? `<button class="btn primary" data-action="open-run">${icon("plus")}<span class="btn-label">Lancer</span></button>` : "",
       images: running() ? `<button class="btn primary" data-action="open-pull">${icon("down")}<span class="btn-label">Télécharger</span></button>` : "",
       machines: `<button class="btn primary" data-action="open-machine">${icon("plus")}<span class="btn-label">Nouvelle</span></button>`,
@@ -291,17 +294,26 @@
         </div></div>`;
     }).join("");
     return `<div class="card"><div class="row card-pad" style="padding-bottom:6px"><h2 style="margin:0">Projets Compose</h2><span class="spacer"></span>
-      <label class="btn">${icon("down")}Importer un .tar.gz<input type="file" accept=".gz,.tgz,application/gzip" data-upload hidden></label></div>
+      <button class="btn" data-action="compose-import">${icon("down")}Importer un .tar.gz</button></div>
       <div class="list">${rows || `<div class="list-item muted">Importez l'archive d'un dossier contenant un <span class="mono">docker-compose.yml</span>
         (ex. <span class="mono">tar czf projet.tar.gz -C mon-projet .</span>). Il est exécuté dans la VM : les bind mounts relatifs, <span class="mono">build:</span> et <span class="mono">.env</span> fonctionnent.</div>`}</div></div>`;
   }
 
   function podsView() {
-    if (!running()) return engineHero() + emptyState("pods", "Moteur arrêté", "Démarrez le moteur Docker pour gérer vos pods et conteneurs.");
-    const list = pods();
-    if (!list.length) return projectsCard() + emptyState("pods", "Aucun conteneur", `Lancez un conteneur avec le bouton <b>Lancer</b>, ou depuis un terminal : <code>docker run -d -p 8080:80 nginx</code>`,
-      `<button class="btn primary" data-action="open-run">${icon("plus")}Lancer un conteneur</button>`);
-    return projectsCard() + list.map((p) => {
+    if (!running()) return engineHero() + emptyState("pods", "Moteur arrêté", "Démarrez le moteur Docker pour gérer vos conteneurs.");
+    const list = pods().filter((p) => !p.compose);
+    const hint = pods().some((p) => p.compose) ? `<p class="muted" style="margin:0">Les conteneurs des projets Compose sont dans <a href="#/stacks">Stacks</a>.</p>` : "";
+    if (!list.length) return emptyState("pods", "Aucun conteneur isolé", `Lancez un conteneur avec le bouton <b>Lancer</b>, ou depuis un terminal : <code>docker run -d -p 8080:80 nginx</code>`,
+      `<button class="btn primary" data-action="open-run">${icon("plus")}Lancer un conteneur</button>`) + hint;
+    return list.map(podCard).join("") + hint;
+  }
+
+  function stacksView() {
+    if (!running()) return engineHero() + emptyState("stack", "Moteur arrêté", "Démarrez le moteur Docker pour importer et lancer vos stacks Compose.");
+    return projectsCard() + pods().filter((p) => p.compose).map(podCard).join("");
+  }
+
+  function podCard(p) {
       const open = S.openPods.has(p.key) || !p.compose;
       const anyUp = p.containers.some((c) => c.State === "running");
       const ids = p.containers.map((c) => c.Id).join(",");
@@ -326,7 +338,6 @@
         </div>
         ${p.compose ? `<div class="pod-body list">${p.containers.map((c) => containerRow(c)).join("")}</div>` : ""}
       </div>`;
-    }).join("");
   }
 
   function containerRow(c) {
@@ -675,7 +686,8 @@
         try { localStorage.setItem("androdock.openPods", JSON.stringify([...S.openPods])); } catch (_) {}
         return render();
       }
-      case "goto-pod": S.openPods.add(el.dataset.key); location.hash = "#/pods"; return;
+      case "goto-pod": S.openPods.add(el.dataset.key); location.hash = el.dataset.key.startsWith("compose:") ? "#/stacks" : "#/pods"; return;
+      case "compose-import": $("#compose-file").click(); return;
       case "pod-start": return act(`pod:${el.dataset.key}`, "Démarrage", () => each((id) => docker("POST", `/containers/${id}/start`)));
       case "pod-stop": return act(`pod:${el.dataset.key}`, "Arrêt", () => each((id) => docker("POST", `/containers/${id}/stop?t=10`)));
       case "pod-restart": return act(`pod:${el.dataset.key}`, "Redémarrage", () => each((id) => docker("POST", `/containers/${id}/restart?t=10`)));

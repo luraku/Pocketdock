@@ -56,12 +56,13 @@ Fonctionnalités principales :
 
 - **Moteur Docker** (Docker 28) dans une VM Alpine Linux arm64, démarrée en arrière-plan par un
   service de premier plan, avec un disque de données persistant (fichier creux, 16 à 256 Go).
-- **Pods et conteneurs** : un projet Compose forme un pod, un conteneur isolé forme le sien. On peut
-  les démarrer, arrêter, redémarrer ou supprimer d'un geste, ouvrir leurs ports, suivre les journaux
+- **Stacks et conteneurs** : les projets Compose ont leur entrée **Stacks**, les conteneurs isolés
+  l'entrée **Conteneurs**. On peut les démarrer, arrêter, redémarrer ou supprimer d'un geste, ouvrir leurs ports, suivre les journaux
   en direct (stderr en rouge), voir CPU, mémoire, réseau et processus, lire la configuration (secrets
   masqués), exécuter une commande ou ouvrir un terminal.
 - **Images et volumes** : téléchargement, lancement, suppression, nettoyage.
-- **Projets Compose** : import d'un dossier (`.tar.gz`), `up`, `up --build`, `down`, sortie en direct.
+- **Stacks Compose** : import d'un dossier (`.tar.gz`) avec « Importer et démarrer », `up`,
+  `up --build`, `down`, sortie en direct.
   Les healthchecks sont adaptés automatiquement à la lenteur de la VM émulée.
 - **Redirection automatique des ports** : `docker run -p 8080:80 nginx` est servi sur
   `http://127.0.0.1:8080` dans le navigateur du téléphone, y compris les ports publiés sur
@@ -133,7 +134,7 @@ Un projet Compose est un dossier contenant un `docker-compose.yml` (ou `compose.
 un `.env`, des fichiers montés et des contextes de build. Pocketdock l'exécute **dans la VM** : les
 chemins relatifs (`./data:/data`), `build:` et `.env` se comportent comme sur un poste Linux.
 
-**Depuis le tableau de bord** : Pods & conteneurs → **Projets Compose** → **Importer un .tar.gz**.
+**Depuis le tableau de bord** : **Stacks** → **Importer un .tar.gz** → **Importer et démarrer**.
 
 ```sh
 # sur votre PC : archiver le CONTENU du dossier du projet
