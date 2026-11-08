@@ -2,6 +2,9 @@
 
 <a href="https://claude.ai"><img src="docs/badges/made-with-claude.svg" alt="Proudly made with Claude" height="40"></a>
 
+**[⬇ Télécharger Pocketdock](https://github.com/luraku/Pocketdock/releases)** · APK pour Android 8+ (arm64) ·
+[![Dernière version](https://img.shields.io/github/v/release/luraku/Pocketdock?include_prereleases&label=version)](https://github.com/luraku/Pocketdock/releases)
+
 **Docker et Linux dans la poche.** Pocketdock fait tourner des conteneurs Docker, des projets
 Docker Compose et des machines Linux sur un téléphone Android, dans une seule application, **sans
 root**. L'idée vient d'[OrbStack](https://orbstack.dev) sur macOS : installer, appuyer sur
