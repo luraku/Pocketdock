@@ -88,7 +88,11 @@ Fonctionnalités principales :
 
 ### Télécharger l'APK
 
-Aucune version n'est encore publiée sur un store. L'APK est produit par la CI à chaque push :
+**Versions publiées** : page [Releases](https://github.com/luraku/Pocketdock/releases), fichier
+`pocketdock-X.Y.Z.apk` à télécharger directement depuis le téléphone (sans compte GitHub). Ces APK
+sont signés avec la clé de publication du projet et se mettent à jour entre eux.
+
+**Version de test de chaque commit** (artefacts de la CI, compte GitHub nécessaire) :
 
 1. Ouvrir l'onglet **Actions** du dépôt, puis le dernier run **Build APK** réussi.
 2. Télécharger l'artefact **pocketdock-apk** (zip contenant `pocketdock-debug.apk` et `pocketdock-release.apk`).

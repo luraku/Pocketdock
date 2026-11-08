@@ -18,8 +18,9 @@ android {
         applicationId = "dev.androdock"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Fixées par le workflow de publication (-PpdVersionCode, -PpdVersionName) ; valeurs de développement sinon.
+        versionCode = (findProperty("pdVersionCode") as String?)?.toInt() ?: 1
+        versionName = (findProperty("pdVersionName") as String?) ?: "0.1.0-dev"
         // arm64 pour les téléphones, x86_64 pour l'émulateur Android (tests e2e en CI).
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         buildConfigField("int", "CONTROL_PORT", "7777")

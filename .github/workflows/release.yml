@@ -1,0 +1,138 @@
+name: Publier une version
+
+# Publie une version de Pocketdock sur la page Releases du dépôt : APK release signé avec la clé de
+# publication (secrets POCKETDOCK_KEYSTORE_B64 et POCKETDOCK_KEYSTORE_PASSWORD), téléchargeable sans
+# compte GitHub. Lancement manuel : Actions → Publier une version → Run workflow → numéro de version.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Numéro de version, ex. 0.2.0 (crée le tag v0.2.0)"
+        required: true
+      notes:
+        description: "Notes de version (facultatif : sinon générées à partir des commits)"
+        required: false
+        default: ""
+      prerelease:
+        description: "Pré-version (non proposée comme « dernière version »)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Numéro de version
+        id: v
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || { echo "Version attendue : X.Y.Z (reçu « $VERSION »)"; exit 1; }
+          # versionCode croissant : 0.2.0 → 200, 1.4.12 → 10412
+          CODE=$(( BASH_REMATCH[1] * 10000 + BASH_REMATCH[2] * 100 + BASH_REMATCH[3] ))
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+
+      - name: Le tag n'existe pas déjà
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.v.outputs.tag }}" >/dev/null 2>&1; then
+            echo "La version ${{ steps.v.outputs.tag }} existe déjà."; exit 1
+          fi
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Cache des binaires natifs
+        uses: actions/cache@v6
+        with:
+          path: .native-cache/debs
+          key: native-${{ hashFiles('scripts/fetch-native.py') }}
+
+      - name: Récupération de QEMU, proot et du client Docker (arm64 + x86_64)
+        run: python3 scripts/fetch-native.py --clean
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      # Une version publique doit être signée avec la clé de publication, jamais avec la clé de debug.
+      - name: Clé de publication
+        env:
+          KEYSTORE_B64: ${{ secrets.POCKETDOCK_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.POCKETDOCK_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Secrets POCKETDOCK_KEYSTORE_B64 et POCKETDOCK_KEYSTORE_PASSWORD absents : publication impossible."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pocketdock-release.p12"
+          echo "POCKETDOCK_KEYSTORE=$RUNNER_TEMP/pocketdock-release.p12" >> "$GITHUB_ENV"
+
+      - name: Compilation de l'APK release
+        env:
+          POCKETDOCK_KEYSTORE_PASSWORD: ${{ secrets.POCKETDOCK_KEYSTORE_PASSWORD }}
+        run: >
+          ./gradlew --no-daemon testDebugUnitTest assembleRelease
+          -PpdVersionName=${{ steps.v.outputs.name }} -PpdVersionCode=${{ steps.v.outputs.code }}
+
+      - name: Signature et empreintes
+        id: apk
+        run: |
+          set -euo pipefail
+          SRC=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          OUT="pocketdock-${{ steps.v.outputs.name }}.apk"
+          cp "$SRC" "$OUT"
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          CERT=$("$APKSIGNER" verify --print-certs "$OUT" | grep -m1 "certificate SHA-256 digest" | awk '{print $NF}')
+          if [ "$CERT" = "$(keytool -list -v -keystore app/debug.keystore -storepass android | grep -m1 'SHA256:' | awk '{print $NF}' | tr -d ':' | tr 'A-F' 'a-f')" ]; then
+            echo "::error::APK signé avec la clé de debug"; exit 1
+          fi
+          sha256sum "$OUT" > "$OUT.sha256"
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+          echo "cert=$CERT" >> "$GITHUB_OUTPUT"
+          echo "Certificat : $CERT"
+
+      - name: Publication sur la page Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ inputs.notes }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          FILE="${{ steps.apk.outputs.file }}"
+          {
+            if [ -n "$NOTES" ]; then printf '%s\n\n' "$NOTES"; fi
+            echo "## Installation"
+            echo
+            echo "Télécharger **$FILE** sur un téléphone Android arm64 (Android 8 ou plus), l'ouvrir et autoriser"
+            echo "l'installation. Les versions publiées sont signées avec la clé de publication de Pocketdock :"
+            echo "elles se mettent à jour entre elles, mais pas par-dessus un APK de test (debug) de la CI."
+            echo
+            echo "Empreinte SHA-256 du certificat de signature : \`${{ steps.apk.outputs.cert }}\`"
+          } > notes.md
+          FLAGS=(--title "Pocketdock ${{ steps.v.outputs.name }}" --notes-file notes.md --target "$GITHUB_SHA")
+          if [ -z "$NOTES" ]; then FLAGS+=(--generate-notes); fi
+          if [ "$PRERELEASE" = "true" ]; then FLAGS+=(--prerelease); fi
+          gh release create "${{ steps.v.outputs.tag }}" "$FILE" "$FILE.sha256" "${FLAGS[@]}"
+          echo "Publiée : ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.v.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
