@@ -152,14 +152,17 @@ class ControlApi(private val context: Context) {
                     command = b.str("command"), restartAlways = b.bool("restartAlways") == true,
                 )
                 requireEngine()
+                app.puller.ensure(spec.image)
                 val id = app.vm.docker.run(spec)
                 HttpResponse.json(201, buildJsonObject { put("id", id) }.toString())
             }
             m == "POST" && s == listOf("images", "pull") -> {
-                val ref = obj(req).str("ref") ?: throw IllegalArgumentException("champ ref requis")
+                val b = obj(req)
+                val ref = b.str("ref") ?: throw IllegalArgumentException("champ ref requis")
                 requireEngine()
-                app.vm.docker.pull(ref)
-                ok(buildJsonObject { put("pulled", ref) })
+                // Téléchargement natif (Android) par défaut, repli sur docker pull ; "native": false pour forcer docker pull.
+                val o = app.puller.pull(ref, preferNative = b.bool("native") != false)
+                ok(buildJsonObject { put("pulled", ref); put("method", o.method); put("ms", o.ms); put("detail", o.detail) })
             }
 
             // ---- Docker Compose (projets exécutés dans la VM)

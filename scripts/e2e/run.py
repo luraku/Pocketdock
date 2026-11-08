@@ -282,6 +282,25 @@ def main():
                 assert "Hello from Docker!" in r["stdout"], r["stdout"][-500:]
                 return f"{r['durationMs'] / 1000:.0f} s"
 
+            @step(ctx, "Téléchargement natif d'une image (TSK-030) comparé à docker pull")
+            def _():
+                ref = "redis:7-alpine"
+                def image_id():
+                    code, r = api(ctx, "GET", f"/docker/images/{ref}/json")
+                    assert code == 200, r
+                    return r["Id"]
+                api(ctx, "DELETE", f"/docker/images/{ref}?force=1")
+                code, n = api(ctx, "POST", "/images/pull", {"ref": ref}, timeout=1800)
+                assert code == 200 and n["method"] == "native", n
+                native_id = image_id()
+                api(ctx, "DELETE", f"/docker/images/{ref}?force=1")
+                code, d = api(ctx, "POST", "/images/pull", {"ref": ref, "native": False}, timeout=1800)
+                assert code == 200 and d["method"] == "docker", d
+                assert image_id() == native_id, "même identifiant d'image qu'avec docker pull"
+                ratio = d["ms"] / max(n["ms"], 1)
+                print(f"    | natif {n['ms'] / 1000:.1f} s ({n['detail']}) ; docker pull {d['ms'] / 1000:.1f} s ; ×{ratio:.1f}", flush=True)
+                return f"natif {n['ms'] / 1000:.1f} s, docker pull {d['ms'] / 1000:.1f} s (×{ratio:.1f}), même ID"
+
             @step(ctx, "Conteneur nginx et redirection automatique du port 8080")
             def _():
                 code, r = api(ctx, "POST", "/exec",

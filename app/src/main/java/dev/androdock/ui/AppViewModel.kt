@@ -115,13 +115,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun logs(c: ContainerSummary): String = runCatching { docker.logs(c.id) }.getOrElse { "Erreur : ${it.message}" }
 
     fun run(spec: RunSpec) = action("Lancement de ${spec.image}…") {
+        app.puller.ensure(spec.image) { _busy.value = it }
         docker.run(spec) { p -> _busy.value = listOfNotNull(p.status, p.progress).joinToString(" ") }
     }
 
     // --- Images & volumes ---
     fun pull(reference: String) = action("Téléchargement de $reference…") {
-        docker.pull(reference) { p -> _busy.value = "$reference : " + listOfNotNull(p.status, p.progress).joinToString(" ") }
-        _messages.value = "$reference téléchargée"
+        val o = app.puller.pull(reference) { _busy.value = it }
+        _messages.value = "$reference téléchargée en ${o.ms / 1000} s" + if (o.method == "native") " (téléchargement natif)" else ""
     }
     fun removeImage(i: ImageSummary) = action("Suppression de ${i.displayName}…") { docker.removeImage(i.id) }
     fun removeVolume(v: VolumeSummary) = action("Suppression du volume ${v.name}…") { docker.removeVolume(v.name) }

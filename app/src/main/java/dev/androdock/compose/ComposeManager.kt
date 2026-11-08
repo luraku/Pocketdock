@@ -33,6 +33,8 @@ import java.util.concurrent.atomic.AtomicInteger
 class ComposeManager(
     private val docker: DockerClient,
     private val localDir: File,
+    /** Téléchargement natif des images avant `up` (TSK-030) ; null : laissé à Compose. */
+    private val puller: dev.androdock.registry.ImagePuller? = null,
 ) {
     companion object {
         const val TAG = "Compose"
@@ -121,9 +123,20 @@ class ComposeManager(
         val dir = "$VM_PROJECTS/$project"
         return launchJob(project, "up", "docker compose up") { job ->
             var files = ""
+            val (code, config) = job.runStep("cd $dir && docker compose -p $project config --format json", stderr = false, record = false)
+            if (code != 0) return@launchJob code
+            // Images téléchargées depuis Android et décompressées par le vrai processeur : Compose
+            // les trouve ensuite présentes et ne les retélécharge pas dans la VM émulée.
+            if (puller != null) {
+                for (image in runCatching { ComposeImages.toPull(config, services) }.getOrDefault(emptyList())) {
+                    if (runCatching { docker.imageExists(image) }.getOrDefault(true)) continue
+                    job.note("Pocketdock : téléchargement de $image depuis le téléphone…")
+                    runCatching { puller.pull(image) }
+                        .onSuccess { o -> job.note("Pocketdock : $image prête en ${o.ms / 1000} s (${if (o.method == "native") "téléchargement natif" else "docker pull"}, ${o.detail})") }
+                        .onFailure { e -> job.note("Pocketdock : $image non téléchargée (${e.message}) ; Compose s'en chargera") }
+                }
+            }
             if (adaptHealthchecks) {
-                val (code, config) = job.runStep("cd $dir && docker compose -p $project config --format json", stderr = false, record = false)
-                if (code != 0) return@launchJob code
                 val (adapted, changed) = HealthcheckAdapter.adapt(config)
                 if (changed.isNotEmpty()) {
                     writeProjectFile(project, ADAPTED_FILE, adapted.toByteArray())

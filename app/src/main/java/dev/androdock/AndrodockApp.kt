@@ -17,6 +17,7 @@ class AndrodockApp : Application() {
     lateinit var machines: MachineManager private set
     lateinit var control: ControlApi private set
     lateinit var compose: ComposeManager private set
+    lateinit var puller: dev.androdock.registry.ImagePuller private set
 
     override fun onCreate() {
         super.onCreate()
@@ -25,7 +26,8 @@ class AndrodockApp : Application() {
         settings = EngineSettings(this)
         vm = DockerVm(this, runtime, settings)
         machines = MachineManager(this, runtime)
-        compose = ComposeManager(vm.docker, java.io.File(filesDir, "compose"))
+        puller = dev.androdock.registry.ImagePuller(vm.docker, cacheDir)
+        compose = ComposeManager(vm.docker, java.io.File(filesDir, "compose"), puller)
         control = ControlApi(this)
         if (settings.config.value.controlApi) control.start()
 

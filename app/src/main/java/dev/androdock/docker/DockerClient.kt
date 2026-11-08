@@ -143,6 +143,33 @@ class DockerClient(port: Int) {
         }
     }
 
+    /**
+     * Charge une archive au format `docker save` (POST /images/load), écrite au fil de l'eau par
+     * [body]. Renvoie les lignes « Loaded image… » ; une erreur du démon lève une [DockerException].
+     */
+    suspend fun loadImage(body: okhttp3.RequestBody): List<String> = withContext(Dispatchers.IO) {
+        val req = Request.Builder().url(url("images/load", "quiet" to "1")).post(body).build()
+        // Le démon de la VM émulée lit l'archive par à-coups : pas de délai d'écriture.
+        streaming.newBuilder().writeTimeout(0, TimeUnit.SECONDS).build().newCall(req).execute().use { resp ->
+            val source = resp.checked().body?.source() ?: return@use emptyList()
+            val out = mutableListOf<String>()
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                if (line.isBlank()) continue
+                val o = runCatching { json.parseToJsonElement(line) as JsonObject }.getOrNull() ?: continue
+                (o["error"] as? JsonPrimitive)?.let { throw DockerException(500, it.content) }
+                (o["stream"] as? JsonPrimitive)?.content?.trim()?.takeIf { it.isNotEmpty() }?.let(out::add)
+            }
+            out
+        }
+    }
+
+    /** Ajoute une étiquette (ex. mysql:8.0) à une image existante. */
+    suspend fun tagImage(image: String, repoTag: String) {
+        val repo = repoTag.substringBeforeLast(':'); val tag = repoTag.substringAfterLast(':')
+        call(post(url("images/$image/tag", "repo" to repo, "tag" to tag)))
+    }
+
     /** Crée et démarre un conteneur ; télécharge l'image si nécessaire. Renvoie l'identifiant. */
     suspend fun run(spec: RunSpec, onProgress: (PullProgress) -> Unit = {}): String {
         val body = createBody(spec).toString()

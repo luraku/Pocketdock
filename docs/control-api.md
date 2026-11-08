@@ -86,7 +86,7 @@ Pour le développer sans appareil : `python3 scripts/dashboard-mock/server.py`, 
 | * | `/v1/docker/<chemin>` | relais transparent vers l'API Docker Engine (`/v1/docker/containers/json?all=1`, `/v1/docker/version`…) ; 503 si le moteur ne tourne pas |
 | POST | `/v1/exec` | `{"cmd":"docker ps","timeoutSec":300,"stdin":"…"}` : commande shell Android avec le client `docker` dans le PATH, renvoie `exitCode`, `stdout`, `stderr`, `timedOut`, `durationMs` |
 | POST | `/v1/containers/run` | `{"image","name","ports":["8080:80"],"env":[],"volumes":[],"command","restartAlways"}` : crée et démarre, télécharge l'image si besoin (201) |
-| POST | `/v1/images/pull` | `{"ref":"postgres:16-alpine"}` |
+| POST | `/v1/images/pull` | `{"ref":"postgres:16-alpine"}` → `{"method":"native"\|"docker","ms","detail"}`. Par défaut, téléchargement **natif** : registre interrogé depuis Android, couches décompressées par le processeur du téléphone puis chargées dans la VM (`docker load`), avec repli sur `docker pull` (couches zstd, registre privé…) ; `"native": false` force `docker pull`. Même identifiant d'image qu'un `docker pull` |
 | GET | `/v1/compose` | projets Compose importés et dernières opérations |
 | PUT | `/v1/compose/<nom>` | corps = archive `.tar.gz` du dossier du projet : déposée dans la VM (`/mnt/data/projects/<nom>`) |
 | POST | `/v1/compose/<nom>/up` | `{"build":true,"services":["mysql","web"],"adaptHealthchecks":true}` → tâche (202). Par défaut, les healthchecks sont adaptés à la VM émulée (start_period ≥ 30 min, via la configuration résolue `.androdock-compose.json`) ; aussi `down` (`{"volumes":true}`), `restart`, `stop`, `start`, `pull`, `cmd` (`{"args":["ps"]}`) |
