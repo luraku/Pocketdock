@@ -8,7 +8,7 @@ plugins {
 base { archivesName = "pocketdock" }
 
 // Chemin du keystore de publication, fourni par la CI (secret) ; absent en local et sur les forks.
-val releaseKeystore: String? = System.getenv("POCKETDOCK_KEYSTORE")?.takeIf { it.isNotBlank() && java.io.File(it).isFile }
+val releaseKeystore: String? = System.getenv("POCKETDOCK_KEYSTORE")?.takeIf { it.isNotBlank() && file(it).isFile }
 
 android {
     namespace = "dev.androdock"
