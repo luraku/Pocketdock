@@ -12,3 +12,8 @@ Sur le téléphone :
 3. Ouvrir http://127.0.0.1:8080 et http://127.0.0.1:8081 dans le navigateur.
 
 L'archive se régénère avec `tar czf pocketdock-demo.tar.gz -C demo .`.
+
+## AzerothCore (`azerothcore/`)
+
+Serveur WotLK 3.3.5a complet (MySQL, authserver, worldserver) pour un client sur le même téléphone :
+voir [`azerothcore/README.md`](azerothcore/README.md). Archive : [`pocketdock-azerothcore.tar.gz`](pocketdock-azerothcore.tar.gz?raw=1).

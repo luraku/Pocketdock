@@ -1,0 +1,98 @@
+# Serveur AzerothCore (World of Warcraft: Wrath of the Lich King 3.3.5a, build 12340) pour Pocketdock.
+# D'après le docker-compose.yml officiel d'AzerothCore, adapté au téléphone :
+#   - images arm64 compilées par le workflow « Images AzerothCore arm64 » de Pocketdock
+#     (les images officielles acore/* n'existent qu'en amd64) ;
+#   - volumes nommés pour la configuration et les journaux : les dossiers liés (bind mounts)
+#     seraient créés par root dans la VM et l'utilisateur acore (uid 1000) ne pourrait pas y écrire ;
+#   - base de données non publiée hors de la VM.
+# Le client, sur le même téléphone, se connecte à 127.0.0.1 : 3724 (authentification) et
+# 8085 (monde) sont redirigés automatiquement vers Android par Pocketdock.
+x-ac-db: &ac-db
+  AC_LOGIN_DATABASE_INFO: "ac-database;3306;root;${DOCKER_DB_ROOT_PASSWORD:-pocketdock};acore_auth"
+  AC_WORLD_DATABASE_INFO: "ac-database;3306;root;${DOCKER_DB_ROOT_PASSWORD:-pocketdock};acore_world"
+  AC_CHARACTER_DATABASE_INFO: "ac-database;3306;root;${DOCKER_DB_ROOT_PASSWORD:-pocketdock};acore_characters"
+  AC_DATA_DIR: "/azerothcore/env/dist/data"
+  AC_LOGS_DIR: "/azerothcore/env/dist/logs"
+  DATAPATH: "/azerothcore/env/dist/data"
+
+services:
+  ac-database:
+    container_name: ac-database
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DOCKER_DB_ROOT_PASSWORD:-pocketdock}
+    volumes:
+      - ac-database:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: "/usr/bin/mysql --user=root --password=\"$$MYSQL_ROOT_PASSWORD\" --execute \"SHOW DATABASES;\""
+      interval: 10s
+      timeout: 10s
+      retries: 40
+
+  # Crée et met à jour les bases auth, world et characters (long au premier lancement).
+  ac-db-import:
+    container_name: ac-db-import
+    image: ${AC_IMAGE:-ghcr.io/luraku/pocketdock-azerothcore}:db-import
+    environment: *ac-db
+    volumes:
+      - ac-etc:/azerothcore/env/dist/etc
+      - ac-logs:/azerothcore/env/dist/logs
+    depends_on:
+      ac-database:
+        condition: service_healthy
+
+  # Télécharge les données client déjà extraites (cartes, vmaps, mmaps, dbc) une seule fois.
+  ac-client-data-init:
+    container_name: ac-client-data-init
+    image: ${AC_IMAGE:-ghcr.io/luraku/pocketdock-azerothcore}:client-data
+    environment:
+      DATAPATH: "/azerothcore/env/dist/data"
+    volumes:
+      - ac-client-data:/azerothcore/env/dist/data
+
+  ac-authserver:
+    container_name: ac-authserver
+    image: ${AC_IMAGE:-ghcr.io/luraku/pocketdock-azerothcore}:authserver
+    tty: true
+    restart: unless-stopped
+    environment:
+      <<: *ac-db
+      AC_TEMP_DIR: "/azerothcore/env/dist/temp"
+    ports:
+      - "3724:3724"
+    volumes:
+      - ac-etc:/azerothcore/env/dist/etc
+      - ac-logs:/azerothcore/env/dist/logs
+    depends_on:
+      ac-database:
+        condition: service_healthy
+      ac-db-import:
+        condition: service_completed_successfully
+
+  ac-worldserver:
+    container_name: ac-worldserver
+    image: ${AC_IMAGE:-ghcr.io/luraku/pocketdock-azerothcore}:worldserver
+    stdin_open: true   # console du serveur : docker attach ac-worldserver
+    tty: true
+    restart: unless-stopped
+    environment: *ac-db
+    ports:
+      - "8085:8085"
+    volumes:
+      - ac-etc:/azerothcore/env/dist/etc
+      - ac-logs:/azerothcore/env/dist/logs
+      - ac-client-data:/azerothcore/env/dist/data:ro
+    depends_on:
+      ac-database:
+        condition: service_healthy
+      ac-db-import:
+        condition: service_completed_successfully
+      ac-client-data-init:
+        condition: service_completed_successfully
+
+volumes:
+  ac-database:
+  ac-client-data:
+  ac-etc:
+  ac-logs:

@@ -1,0 +1,61 @@
+name: Images AzerothCore arm64
+
+# Images arm64 d'AzerothCore (WotLK 3.3.5a) pour Pocketdock : les images officielles acore/* n'existent
+# qu'en amd64. Compilées depuis les sources officielles, sur une machine arm64 native, avec le
+# Dockerfile du projet AzerothCore, sans modification. Publiées dans ghcr.io/<propriétaire>/pocketdock-azerothcore.
+# Lancement manuel : Actions → Images AzerothCore arm64 → Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branche, tag ou commit d'azerothcore/azerothcore-wotlk"
+        default: master
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: azerothcore-arm64
+  cancel-in-progress: false
+
+jobs:
+  images:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 300
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/pocketdock-azerothcore
+    steps:
+      - name: Sources d'AzerothCore
+        uses: actions/checkout@v7
+        with:
+          repository: azerothcore/azerothcore-wotlk
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Connexion à ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # Release plutôt que RelWithDebInfo : images plus légères, à télécharger et décompresser sur le
+      # téléphone. Outils limités à dbimport (les données du client sont téléchargées, pas extraites).
+      - name: Compilation et publication (authserver, worldserver, db-import, client-data)
+        run: |
+          set -euo pipefail
+          IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+          SHA=$(git rev-parse --short HEAD)
+          echo "AzerothCore $SHA ($(git log -1 --format=%cs))" >> "$GITHUB_STEP_SUMMARY"
+          for target in client-data db-import authserver worldserver; do
+            echo "::group::$target"
+            docker build -f apps/docker/Dockerfile --target "$target" \
+              --build-arg CTYPE=Release --build-arg CTOOLS_BUILD=db-only \
+              --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+              --label "org.opencontainers.image.description=AzerothCore $target (arm64) pour Pocketdock" \
+              --label "org.opencontainers.image.revision=$SHA" \
+              -t "$IMAGE:$target" -t "$IMAGE:$target-$SHA" .
+            docker push "$IMAGE:$target"
+            docker push "$IMAGE:$target-$SHA"
+            echo "::endgroup::"
+            echo "- \`$IMAGE:$target\` ($(docker image inspect -f '{{.Architecture}}' "$IMAGE:$target"), $(docker image inspect -f '{{.Size}}' "$IMAGE:$target" | numfmt --to=iec))" >> "$GITHUB_STEP_SUMMARY"
+          done
