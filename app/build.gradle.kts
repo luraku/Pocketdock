@@ -7,6 +7,9 @@ plugins {
 // Nom des APK produits : pocketdock-debug.apk, pocketdock-release.apk (au lieu de app-*.apk).
 base { archivesName = "pocketdock" }
 
+// Chemin du keystore de publication, fourni par la CI (secret) ; absent en local et sur les forks.
+val releaseKeystore: String? = System.getenv("POCKETDOCK_KEYSTORE")?.takeIf { it.isNotBlank() && java.io.File(it).isFile }
+
 android {
     namespace = "dev.androdock"
     compileSdk = 35
@@ -26,20 +29,30 @@ android {
         // Clé de debug fixe, versionnée : sans elle, chaque run de CI génère une nouvelle clé et
         // Android refuse d'installer l'APK par-dessus une version précédente (signatures
         // différentes). Elle n'a rien de secret (mots de passe standard « android ») : elle ne
-        // sert qu'aux builds de test. Une vraie clé de publication devra rester hors du dépôt.
+        // sert qu'aux builds de test.
         getByName("debug") {
             storeFile = file("debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // Clé de publication : jamais dans le dépôt. La CI la reconstitue depuis les secrets GitHub
+        // (POCKETDOCK_KEYSTORE_B64, POCKETDOCK_KEYSTORE_PASSWORD) et passe son chemin ici.
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("POCKETDOCK_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("POCKETDOCK_KEY_ALIAS") ?: "pocketdock"
+                keyPassword = System.getenv("POCKETDOCK_KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Signature debug pour pouvoir installer l'APK de release directement.
-            signingConfig = signingConfigs.getByName("debug")
+            // Clé de publication si elle est fournie, sinon clé de debug (forks, builds locaux).
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
         }
     }
 

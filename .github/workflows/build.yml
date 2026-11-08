@@ -57,8 +57,34 @@ jobs:
       - name: Tests unitaires
         run: ./gradlew --no-daemon testDebugUnitTest
 
+      # Clé de publication : secrets du dépôt, absents sur les forks et les PR externes (le release
+      # est alors signé avec la clé de debug). Le keystore n'existe que dans $RUNNER_TEMP.
+      - name: Clé de publication
+        env:
+          KEYSTORE_B64: ${{ secrets.POCKETDOCK_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pocketdock-release.p12"
+            echo "POCKETDOCK_KEYSTORE=$RUNNER_TEMP/pocketdock-release.p12" >> "$GITHUB_ENV"
+            echo "Clé de publication présente : l'APK release en sera signé."
+          else
+            echo "Pas de clé de publication : l'APK release est signé avec la clé de debug."
+          fi
+
       - name: Compilation
+        env:
+          POCKETDOCK_KEYSTORE_PASSWORD: ${{ secrets.POCKETDOCK_KEYSTORE_PASSWORD }}
         run: ./gradlew --no-daemon assembleDebug assembleRelease
+
+      # Empreintes publiques des certificats (rien de secret) : preuve de la clé utilisée.
+      - name: Signatures des APK
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          [ -n "$APKSIGNER" ] || { echo "apksigner introuvable"; exit 0; }
+          for apk in app/build/outputs/apk/*/*.apk; do
+            echo "== $(basename "$apk")"
+            "$APKSIGNER" verify --print-certs "$apk" | grep -E "certificate DN|SHA-256"
+          done
 
       - name: Rapport des tests unitaires
         if: always()

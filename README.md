@@ -96,9 +96,12 @@ Aucune version n'est encore publiée sur un store. L'APK est produit par la CI �
 
 Ou par adb : `adb install -r pocketdock-debug.apk`.
 
-> Les APK de la CI sont signés avec une clé de debug fixe (`app/debug.keystore`), ce qui permet
-> d'installer une nouvelle version par-dessus l'ancienne. Le build `release` est pour l'instant signé
-> avec cette même clé. Le build **debug** active l'API
+> L'APK **debug** est signé avec une clé de debug fixe (`app/debug.keystore`), ce qui permet
+> d'installer une nouvelle version par-dessus l'ancienne. L'APK **release** de la CI est signé avec la
+> clé de publication du projet, gardée dans les secrets GitHub (jamais dans le dépôt) ; sur un fork ou
+> en local, il retombe sur la clé de debug. L'étape « Signatures des APK » de la CI affiche les
+> empreintes. Les deux APK ont des signatures différentes : on ne passe pas de l'un à l'autre sans
+> désinstaller. Le build **debug** active l'API
 > de contrôle par défaut, le build release la désactive.
 
 ## Premiers pas
@@ -352,7 +355,6 @@ python3 scripts/dashboard-mock/server.py   # API factice avec des données réal
 - **Sécurité** : l'API Docker de la VM écoute sans authentification sur `127.0.0.1:2375`, joignable
   par les autres applications de l'appareil. Elles ne contrôlent que la VM, pas Android. L'API de
   contrôle, elle, exige un jeton.
-- Le build release est signé avec la clé de debug.
 
 ## Feuille de route
 
