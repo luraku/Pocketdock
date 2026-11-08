@@ -80,7 +80,9 @@ class RegistryClient(
             o = getManifest(ref, digest)
         }
         val mediaType = o["mediaType"]?.jsonPrimitive?.content.orEmpty()
-        if ((o["schemaVersion"] as? JsonPrimitive)?.content == "1" || mediaType.contains("v1+")) {
+        // Schéma 1 (obsolète) : « application/vnd.docker.distribution.manifest.v1+json » ou « …v1+prettyjws ».
+        // Attention, le manifeste OCI moderne s'appelle lui aussi « …image.manifest.v1+json ».
+        if ((o["schemaVersion"] as? JsonPrimitive)?.content == "1" || mediaType.startsWith("application/vnd.docker.distribution.manifest.v1")) {
             throw UnsupportedImageException("manifeste de schéma 1 non pris en charge")
         }
         val config = o["config"]?.jsonObject?.get("digest")?.jsonPrimitive?.content
