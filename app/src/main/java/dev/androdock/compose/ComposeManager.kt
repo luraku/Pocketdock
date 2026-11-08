@@ -127,6 +127,7 @@ class ComposeManager(
             if (code != 0) return@launchJob code
             // Images téléchargées depuis Android et décompressées par le vrai processeur : Compose
             // les trouve ensuite présentes et ne les retélécharge pas dans la VM émulée.
+            val puller = puller
             if (puller != null) {
                 for (image in runCatching { ComposeImages.toPull(config, services) }.getOrDefault(emptyList())) {
                     if (runCatching { docker.imageExists(image) }.getOrDefault(true)) continue
