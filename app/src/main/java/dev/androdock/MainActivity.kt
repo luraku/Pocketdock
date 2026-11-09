@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         requestedTab.value = intent?.getStringExtra(EXTRA_TAB)
-        intent?.let { openDashboardIfAsked(it) }
+        intent?.let { openDashboardIfAsked(it); openTerminalIfAsked(it) }
         val skipPermission = intent?.getBooleanExtra(EXTRA_NO_PERMISSION_PROMPT, false) == true
         if (Build.VERSION.SDK_INT >= 33 && !skipPermission) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         setContent { AndrodockTheme { Surface(Modifier.fillMaxSize()) { App(requestedTab = requestedTab.value) } } }
@@ -97,6 +97,13 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         intent.getStringExtra(EXTRA_TAB)?.let { requestedTab.value = it }
         openDashboardIfAsked(intent)
+        openTerminalIfAsked(intent)
+    }
+
+    /** `am start -n dev.androdock/.MainActivity --es terminal docker` ouvre le terminal Docker (tests e2e). */
+    private fun openTerminalIfAsked(intent: android.content.Intent) {
+        val kind = intent.getStringExtra(EXTRA_TERMINAL) ?: return
+        startActivity(dev.androdock.terminal.TerminalActivity.intent(this, kind, title = kind))
     }
 
     /** `am start -n dev.androdock/.MainActivity --es dashboard pods` ouvre le tableau de bord web sur cette vue. */
@@ -113,6 +120,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_TAB = "tab"
         const val EXTRA_NO_PERMISSION_PROMPT = "noPermissionPrompt"
         const val EXTRA_DASHBOARD = "dashboard"
+        const val EXTRA_TERMINAL = "terminal"
     }
 }
 

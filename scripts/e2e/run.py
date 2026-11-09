@@ -301,6 +301,28 @@ def main():
                 print(f"    | natif {n['ms'] / 1000:.1f} s ({n['detail']}) ; docker pull {d['ms'] / 1000:.1f} s ; ×{ratio:.1f}", flush=True)
                 return f"natif {n['ms'] / 1000:.1f} s, docker pull {d['ms'] / 1000:.1f} s (×{ratio:.1f}), même ID"
 
+            @step(ctx, "Terminal Docker : ouverture et commande docker version")
+            def _():
+                adb(ctx, "logcat", "-c", check=False)
+                adb(ctx, "logcat", "-b", "crash", "-c", check=False)
+                pid = adb(ctx, "shell", "pidof", PKG, check=False).decode().strip()
+                adb(ctx, "shell", "am", "start", "--activity-clear-top", "-n", f"{PKG}/.MainActivity", "--es", "terminal", "docker", check=False)
+                time.sleep(6)
+                adb(ctx, "shell", "input", "text", "docker%sversion%s>/sdcard/Download/pd-term.txt", check=False)
+                adb(ctx, "shell", "input", "keyevent", "66", check=False)
+                time.sleep(8)
+                screenshot(ctx, "20-terminal-docker")
+                pid2 = adb(ctx, "shell", "pidof", PKG, check=False).decode().strip()
+                crash = adb(ctx, "logcat", "-d", "-b", "crash", check=False).decode(errors="replace").strip()
+                if crash or pid2 != pid:
+                    print("    | pid " + pid + " → " + pid2, flush=True)
+                    for l in (crash.splitlines() or app_deaths(ctx))[-60:]:
+                        print("    | " + l, flush=True)
+                    raise AssertionError("l'application a planté à l'ouverture du terminal Docker")
+                out = adb(ctx, "shell", "cat", "/sdcard/Download/pd-term.txt", check=False).decode(errors="replace")
+                adb(ctx, "shell", "am", "start", "--activity-clear-top", "-n", f"{PKG}/.MainActivity", check=False)
+                return "terminal ouvert sans plantage" + (" ; docker version : " + out.split("Version:")[1].split()[0] if "Version:" in out else " (sortie non lue)")
+
             @step(ctx, "Conteneur nginx et redirection automatique du port 8080")
             def _():
                 code, r = api(ctx, "POST", "/exec",
