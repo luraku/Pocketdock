@@ -61,8 +61,10 @@ class TerminalActivity : Activity() {
             setBackgroundColor(Color.BLACK)
             isFocusable = true
             isFocusableInTouchMode = true
-            setTypeface(Typeface.MONOSPACE)
+            // setTextSize d'abord : c'est lui qui crée le moteur de rendu de Termux ; setTypeface
+            // avant lui lisait un rendu encore nul (NullPointerException, plantage à l'ouverture).
             setTextSize(fontSizePx.toInt())
+            setTypeface(Typeface.MONOSPACE)
             setTerminalViewClient(viewClient)
             keepScreenOn = true
         }
